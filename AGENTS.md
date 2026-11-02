@@ -21,8 +21,10 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 
 - Binary: the release pinned in `.github/workflows/ci.yml` (`AGENTICA_VERSION`, with its sha256). Keep a local copy
   under `.tools/` (gitignored), never `/tmp`.
-- `make native` builds `native/linux/libtermbox2.so` (or the macOS `.dylib`), which `agentica.toml` names; it is not
-  committed.
+- `native/linux/libtermbox2.so` is committed: the `native` job of CI builds it on ubuntu-22.04 (`make
+  native-verify` compares a fresh build with it, byte for byte) and uploads the build. After a change of `native/`,
+  commit that artifact (`gh run download RUN -n libtermbox2-linux-x86_64`), never a local build: it may need a newer
+  glibc. `make native` rebuilds it in place for local work.
 - `make test AGENTICA=...`: `check`, `unit` (`agentica test tests`), `pty` (`python3 -m unittest`).
 - `make verify-vendor`: the sha256 of `native/termbox2/termbox2.h` against its `VERSION`.
 

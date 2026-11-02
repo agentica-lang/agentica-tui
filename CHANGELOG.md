@@ -15,5 +15,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A mouse event with a key the library does not name is `Event.Key(Key.Other(code), mods)`; an unknown event kind
   is skipped.
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
-- termbox2 v2.5.0, vendored, built into `libtermbox2` by `make native`.
+- termbox2 v2.5.0, vendored, built into `libtermbox2`; the package ships it prebuilt for Linux x86_64 (glibc 2.35 or
+  later), so `agentica add` and `agentica install` work with no C compiler.
 - Needs Agentica 0.20.0.
