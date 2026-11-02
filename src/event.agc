@@ -112,18 +112,18 @@ export enum InputMode
   Alt
 end
 
-## The event of the fields termbox2 gave, or an error for an event termbox2 does not make.
-export def decode(raw: Raw) -> Result[Event]
+## The event of the fields termbox2 gave, or `none` for an event kind termbox2 does not make. A mouse event with a
+## key this library does not name is `Key(Key.Other(code), mods)`.
+export def decode(raw: Raw) -> Optional[Event]
   if raw.kind == KIND_KEY
-    return ok(key_event(raw))
+    return some(key_event(raw))
   elsif raw.kind == KIND_RESIZE
-    return ok(Event.Resize(raw.width, raw.height))
+    return some(Event.Resize(raw.width, raw.height))
   elsif raw.kind == KIND_MOUSE
-    button = try mouse_button(raw.key)
-    return ok(Event.Mouse(button, raw.x, raw.y, mods(raw.mod)))
+    return some(mouse_event(raw))
   end
 
-  return error("tui: unknown event kind: #{raw.kind}")
+  return none
 end
 
 ## The termbox2 value of an input mode, with mouse events or not.
@@ -189,13 +189,13 @@ def other_key(code: Int) -> Key
   return Key.Other(code)
 end
 
-def mouse_button(code: Int) -> Result[Mouse]
-  index = KEY_TOP - code - FUNCTION_KEYS - TERMINAL_KEYS.size
+def mouse_event(raw: Raw) -> Event
+  index = KEY_TOP - raw.key - FUNCTION_KEYS - TERMINAL_KEYS.size
   if index >= 0 and index < MOUSE_BUTTONS.size
-    return ok(MOUSE_BUTTONS[index])
+    return Event.Mouse(MOUSE_BUTTONS[index], raw.x, raw.y, mods(raw.mod))
   end
 
-  return error("tui: unknown mouse key: #{code}")
+  return Event.Key(Key.Other(raw.key), mods(raw.mod))
 end
 
 def mouse_flag(mouse: Bool) -> Int

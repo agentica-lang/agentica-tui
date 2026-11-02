@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install the pinned Agentica release
         run: |
@@ -29,6 +29,8 @@ jobs:
           echo "$RUNNER_TEMP/agentica-${AGENTICA_VERSION}-linux-x86_64/bin" >> "$GITHUB_PATH"
 
       - run: agentica --version
+
+      - run: make verify-vendor
 
       - name: Check the format
         run: agentica fmt --check tui.agc src examples tests

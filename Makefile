@@ -4,7 +4,7 @@ PYTHON ?= python3
 CFLAGS ?= -O2
 
 # termbox2's own flags (its Makefile), position-independent for a shared library.
-TB_CFLAGS = -std=c99 -Wall -Wextra -Wno-unused-result -fPIC -D_XOPEN_SOURCE -D_DEFAULT_SOURCE
+TB_CFLAGS = -std=c99 -Wall -Wextra -Wno-unused-result -fPIC -pthread -D_XOPEN_SOURCE -D_DEFAULT_SOURCE
 
 ifeq ($(shell uname -s),Darwin)
 # A macOS library of a package is a universal binary.
@@ -17,13 +17,17 @@ endif
 
 SOURCES = tui.agc src/*.agc examples/*.agc tests/*.agc tests/fixtures/*.agc
 
-.PHONY: native check test unit pty clean
+.PHONY: native verify-vendor check test unit pty clean
 
 native: $(LIB)
 
 $(LIB): native/tui.c native/termbox2/termbox2.h
 	mkdir -p $(dir $@)
 	$(CC) $(TB_CFLAGS) $(CFLAGS) $(LIB_FLAGS) native/tui.c -o $@
+
+# termbox2.h is the release file, unchanged: its sha256 is in native/termbox2/VERSION.
+verify-vendor:
+	cd native/termbox2 && sed -n 's/^sha256 //p' VERSION | sha256sum -c -
 
 check: native
 	for file in $(SOURCES); do $(AGENTICA) check $$file || exit 1; done

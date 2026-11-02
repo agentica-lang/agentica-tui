@@ -221,6 +221,37 @@ class PtyTest(unittest.TestCase):
         self.assertIn(LEAVE_SCREEN, term.output[at:])
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
+    def test_a_second_open_fails_and_changes_nothing(self) -> None:
+        term = self.start("twice.agc")
+
+        self.assertEqual(term.finish(), 0)
+        self.assertEqual(term.output.count(ENTER_SCREEN), 2)
+        lines = ESCAPE.sub("", term.output[term.output.rindex(LEAVE_SCREEN) :].decode()).split("\r\n")
+        self.assertEqual(lines[0], "before C")
+        self.assertRegex(lines[1], r'^first ok\("error\(.*initialized already.*\) inside .*UTF-8"\)$')
+        self.assertEqual(lines[2:], ["after C", 'again ok("drawn")', ""])
+        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+
+    def test_drawing_while_a_wait_runs_and_closing_ends_the_wait(self) -> None:
+        term = self.start("background.agc")
+
+        self.assertEqual(term.finish(), 0)
+        screen = term.output[: term.output.rindex(LEAVE_SCREEN)]
+        self.assertIn(b"\x1b[38;5;196m\x1b[1;1Hpalette", screen)
+        self.assertIn(b"\x1b[38;2;255;128;0m\x1b[2;1Htrue color", screen)
+        self.assertIn(b"\x1b[3;6H", screen)  # the cursor at column 5, row 2
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        self.assertIn(b'waiter error("tui: the screen is closed")', after)
+        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+
+    def test_a_draw_after_the_close_is_refused(self) -> None:
+        term = self.start("closed.agc")
+
+        self.assertEqual(term.finish(), 1)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        self.assertIn(b"RUNTIME-NATIVE-CLOSED", after)
+        self.assertNotIn(b"late", after)
+
     def test_open_without_a_terminal_is_an_error(self) -> None:
         result = subprocess.run(
             [AGENTICA, str(FIXTURES / "events.agc")],

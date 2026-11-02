@@ -10,8 +10,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   error.
 - Drawing: `clear`, `set_cell`, `write`, `present`, `width`, `height`, `set_cursor` and `hide_cursor`, with `Style`,
   `Color` and `Attr`.
-- Events: `poll_event` and `peek_event(timeout_ms)` give `Event.Key`, `Char`, `Mouse` or `Resize`; other tasks run
-  while they wait.
+- Events: `poll_event` and `peek_event(timeout_ms)` give `Event.Key`, `Char`, `Mouse` or `Resize`; other tasks run,
+  and may draw, while they wait; closing the screen ends a wait with an error.
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
 - termbox2 v2.5.0, vendored, built into `libtermbox2` by `make native`.
 - Needs Agentica 0.20.0.

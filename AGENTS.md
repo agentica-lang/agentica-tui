@@ -10,7 +10,8 @@ src/termbox.agc        the extern block (resource Screen) and the wrappers: open
 src/event.agc          Event, Key, Mouse, Mods, InputMode; decodes the fields of a struct tb_event (pure)
 src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute values (pure)
 native/termbox2/       termbox2.h vendored at a tag (VERSION has the tag, commit and sha256), its MIT LICENSE
-native/tui.c           termbox2 plus tui_init, tui_shutdown (the free function of Screen) and tui_wait_event
+native/tui.c           termbox2 plus the tui_* functions the bindings call: one lock around every termbox2 call,
+                       tui_shutdown (the free function of Screen), tui_wait_event (waits of at most 50 ms)
 examples/box.agc       the demo
 tests/*_test.agc       unit tests of the pure helpers
 tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fixtures/*.agc and the demo
@@ -23,6 +24,7 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - `make native` builds `native/linux/libtermbox2.so` (or the macOS `.dylib`), which `agentica.toml` names; it is not
   committed.
 - `make test AGENTICA=...`: `check`, `unit` (`agentica test tests`), `pty` (`python3 -m unittest`).
+- `make verify-vendor`: the sha256 of `native/termbox2/termbox2.h` against its `VERSION`.
 
 ## Rules
 
@@ -32,6 +34,9 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - The extern block stays private in `src/termbox.agc`; only the wrappers and `Screen` are exported, through
   `tui.agc`. Decoding and attribute values stay pure (no extern) so the unit tests run without the library.
 - termbox2 is never edited: a change goes in `native/tui.c`. A new termbox2 tag updates `native/termbox2/VERSION`.
+- The extern block calls only `tui_*` functions of `native/tui.c`, each taking the screen (so the VM refuses a
+  call after the close and never frees the screen during one) and each holding the lock around termbox2. A wait
+  never holds the lock while it sleeps.
 - Tests are hermetic: no real terminal, Python standard library only. Behavior visible on the screen is a pty test;
   edge cases of pure helpers are unit tests.
 - Every user-visible change adds a line under `## [Unreleased]` of `CHANGELOG.md`.

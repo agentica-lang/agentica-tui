@@ -48,10 +48,12 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
   of the text; what passes the right edge is cut): draw into a back buffer. `style` may be left out.
 - `present(screen)`: shows the back buffer.
 - `poll_event(screen)`: waits for an `Event`; `peek_event(screen, timeout_ms)` gives `none` after the timeout. Other
-  tasks run while they wait.
+  tasks run while they wait, and may draw: every termbox2 call is under one lock. A close (the end of the block)
+  ends a wait with an error within 50 ms.
 - `set_input_mode(screen, mode, mouse)` with `InputMode.Esc` or `InputMode.Alt`; `set_output_mode(screen, mode)` with
   `OutputMode.Normal`, `Colors256` or `Truecolor`.
 - `set_cursor(screen, x, y)`, `hide_cursor(screen)`.
+- A call with a screen after it is closed stops the task with `RUNTIME-NATIVE-CLOSED`.
 - `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`.
 - `Key`: `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`,
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
@@ -67,17 +69,20 @@ make test AGENTICA=/path/to/agentica
 
 `make check` checks every `.agc` file, `make unit` runs the unit tests of the pure helpers (`tests/*_test.agc`), and
 `make pty` runs `tests/test_pty.py`: Python (standard library only) starts the programs of `tests/fixtures/` and the
-example under a new pseudo-terminal, sends keys, a mouse click and a resize, and checks the screen and that the
-terminal modes come back.
+example under a new pseudo-terminal, sends keys, a mouse click and a resize, and checks the screen, the colors and
+the cursor, a draw while another task waits, a second `open`, and that the terminal modes and the locale come
+back.
 
 ## Limits
 
 - Not installable from another project yet: `agentica install` would bring the package without the built library,
   and building it inside `deps/` changes the package hash. A release will publish prebuilt libraries for the
   `[native.termbox2]` entries of `agentica.toml`.
-- One terminal per process, used from one task at a time (termbox2 keeps global state).
+- One terminal per process (termbox2 keeps global state): a second `open` while one is open is an error.
+- While the screen is open the process has a UTF-8 `LC_CTYPE` (termbox2 needs it to measure characters); `open`
+  puts the old one back at the close.
 - Linux is tested; the macOS build (a universal `.dylib`) is not tested yet; no Windows.
-- `poll_event` and `peek_event` run on the VM's compute pool: a call that waits holds one of its threads.
+- `poll_event` and `peek_event` wait on the VM's compute pool, in calls of at most 50 ms.
 - Not bound yet: grapheme clusters (`tb_set_cell_ex`), `tb_printf`, output modes 216 and grayscale.
 
 ## License
