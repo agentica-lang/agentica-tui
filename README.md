@@ -7,12 +7,17 @@ same shared library.
 
 ## Get started
 
-Needs Agentica 0.20.0 or later on Linux x86_64 (glibc 2.35 or later): the package ships
-`native/linux/libtermbox2.so`, built by CI on ubuntu-22.04 from `native/`. Add it to a project with a tag:
+Needs Agentica 0.20.0 or later on Linux x86_64 (glibc 2.33 or later): the package ships
+`native/linux/libtermbox2.so`, built by CI on ubuntu-22.04 from `native/`. There is no release tag yet: add it to
+a project at a commit of `main` (the whole commit id):
 
 ```sh
-agentica add tui https://github.com/agentica-lang/agentica-tui --tag TAG
+agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
 ```
+
+To check the library: `sha256sum native/linux/libtermbox2.so` gives `32b1321834545539e9e1ef0fa073b8670a92061a172e1f594bd9399940999661` at this version, and the `native` job of
+CI fails unless the committed file is byte for byte a fresh build of `native/` on ubuntu-22.04 (`make
+native-verify`).
 
 From a clone:
 

@@ -23,7 +23,10 @@ native:
 native-verify:
 	mkdir -p $(dir $(FRESH))
 	$(CC) $(TB_CFLAGS) $(CFLAGS) $(LIB_FLAGS) native/tui.c -o $(FRESH)
-	cmp $(FRESH) $(LIB) || { echo "$(LIB) is not the build of native/: commit the native artifact of CI" >&2; exit 1; }
+	cmp -s $(FRESH) $(LIB) || { \
+	  sha256sum $(FRESH) $(LIB) >&2; \
+	  echo "$(LIB) is not this build of native/: commit the native artifact of CI (ubuntu-22.04)" >&2; \
+	  exit 1; }
 
 # termbox2.h is the release file, unchanged: its sha256 is in native/termbox2/VERSION.
 verify-vendor:

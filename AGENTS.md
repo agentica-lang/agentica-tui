@@ -24,7 +24,9 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - `native/linux/libtermbox2.so` is committed: the `native` job of CI builds it on ubuntu-22.04 (`make
   native-verify` compares a fresh build with it, byte for byte) and uploads the build. After a change of `native/`,
   commit that artifact (`gh run download RUN -n libtermbox2-linux-x86_64`), never a local build: it may need a newer
-  glibc. `make native` rebuilds it in place for local work.
+  glibc, and update its sha256 in the README and the CHANGELOG. `make native` rebuilds it in place for local work.
+  `make native-verify` fails on a machine whose gcc or glibc differs from ubuntu-22.04 (it prints both sha256): only
+  the CI job is the judge.
 - `make test AGENTICA=...`: `check`, `unit` (`agentica test tests`), `pty` (`python3 -m unittest`).
 - `make verify-vendor`: the sha256 of `native/termbox2/termbox2.h` against its `VERSION`.
 
