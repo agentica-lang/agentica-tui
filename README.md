@@ -83,6 +83,8 @@ back.
   puts the old one back at the close.
 - Linux is tested; the macOS build (a universal `.dylib`) is not tested yet; no Windows.
 - `poll_event` and `peek_event` wait on the VM's compute pool, in calls of at most 50 ms.
+- A close that lands between a wait's check that the screen is open and its next 50 ms call stops the waiting task
+  with `RUNTIME-NATIVE-CLOSED` instead of the error (a narrow race).
 - Not bound yet: grapheme clusters (`tb_set_cell_ex`), `tb_printf`, output modes 216 and grayscale.
 
 ## License

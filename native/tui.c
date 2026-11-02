@@ -173,9 +173,14 @@ static long long now_ms(void) {
     return (long long)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
 }
 
-/* An event already read, or readable now, without waiting. */
-static int peek_now(struct tb_event *event) {
-    TUI_LOCKED(tb_peek_event(event, 0));
+/* An event already read, or readable now, without waiting. `err` gets the
+ * errno termbox2 kept for a failed select or read, read under the lock. */
+static int peek_now(struct tb_event *event, int *err) {
+    pthread_mutex_lock(&tui_lock);
+    int rv = tui_opened ? tb_peek_event(event, 0) : TB_ERR_NOT_INIT;
+    *err = tb_last_errno();
+    pthread_mutex_unlock(&tui_lock);
+    return rv;
 }
 
 /* Without the lock, waits up to `timeout_ms` for the tty or the resize pipe
@@ -217,9 +222,10 @@ int tui_wait_event(void *screen, struct tb_event *event, int timeout_ms) {
     long long deadline = now_ms() + (timeout_ms < 0 ? 0 : timeout_ms);
     int ends = 0;
     for (;;) {
-        int rv = peek_now(event);
+        int err = 0;
+        int rv = peek_now(event, &err);
         int incomplete = rv == TB_ERR || rv == TB_ERR_NEED_MORE;
-        int interrupted = rv == TB_ERR_POLL && tb_last_errno() == EINTR;
+        int interrupted = rv == TB_ERR_POLL && err == EINTR;
         if (!incomplete && !interrupted && rv != TB_ERR_NO_EVENT) {
             return rv;
         }
