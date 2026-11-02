@@ -1,0 +1,11 @@
+name = "tui"
+
+# Needs Agentica 0.20.0 or later.
+
+[style]
+blank_line_after_end = true
+
+# Built from native/tui.c and the vendored native/termbox2/termbox2.h by `make native`; not committed.
+[native.termbox2]
+linux = { file = "native/linux/libtermbox2.so" }
+macos = { file = "native/macos/libtermbox2.dylib" }
