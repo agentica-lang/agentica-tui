@@ -7,12 +7,26 @@ same shared library.
 
 ## Get started
 
-Needs Agentica 0.20.0 or later, a C compiler and `make` (Linux; macOS should work but is not tested yet).
+Needs Agentica 0.20.0 or later on Linux x86_64 (glibc 2.33 or later): the package ships
+`native/linux/libtermbox2.so`, built by CI on ubuntu-22.04 from `native/`. There is no release tag yet: add it to
+a project at a commit of `main` (the whole commit id):
 
 ```sh
-make native                 # builds native/linux/libtermbox2.so (native/macos/libtermbox2.dylib on macOS)
+agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
+```
+
+To check the library: `sha256sum native/linux/libtermbox2.so` gives `32b1321834545539e9e1ef0fa073b8670a92061a172e1f594bd9399940999661` at this version, and the `native` job of
+CI fails unless the committed file is byte for byte a fresh build of `native/` on ubuntu-22.04 (`make
+native-verify`).
+
+From a clone:
+
+```sh
 agentica examples/box.agc   # a box that moves with the arrow keys; q quits
 ```
+
+`make native` rebuilds the library with your C compiler (it may then need your newer glibc; do not commit it: CI
+builds the committed one, see `make native-verify`).
 
 ## Example
 
@@ -75,13 +89,10 @@ back.
 
 ## Limits
 
-- Not installable from another project yet: `agentica install` would bring the package without the built library,
-  and building it inside `deps/` changes the package hash. A release will publish prebuilt libraries for the
-  `[native.termbox2]` entries of `agentica.toml`.
 - One terminal per process (termbox2 keeps global state): a second `open` while one is open is an error.
 - While the screen is open the process has a UTF-8 `LC_CTYPE` (termbox2 needs it to measure characters); `open`
   puts the old one back at the close.
-- Linux is tested; the macOS build (a universal `.dylib`) is not tested yet; no Windows.
+- Linux x86_64 only for now (no arm64, macOS or Windows library yet).
 - `poll_event` and `peek_event` wait on the VM's compute pool, in calls of at most 50 ms.
 - A close that lands between a wait's check that the screen is open and its next 50 ms call stops the waiting task
   with `RUNTIME-NATIVE-CLOSED` instead of the error (a narrow race).

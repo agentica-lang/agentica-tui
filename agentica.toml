@@ -5,7 +5,7 @@ name = "tui"
 [style]
 blank_line_after_end = true
 
-# Built from native/tui.c and the vendored native/termbox2/termbox2.h by `make native`; not committed.
+# Linux x86_64 only: native/tui.c and the vendored native/termbox2/termbox2.h, built on ubuntu-22.04 by the `native`
+# job of CI and committed (Makefile: native, native-verify).
 [native.termbox2]
 linux = { file = "native/linux/libtermbox2.so" }
-macos = { file = "native/macos/libtermbox2.dylib" }
