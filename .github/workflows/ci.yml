@@ -35,5 +35,22 @@ jobs:
       - name: Check the format
         run: agentica fmt --check tui.agc src examples tests
 
-      # Builds libtermbox2.so, checks every .agc file, runs the unit tests and the pseudo-terminal tests.
+      # Checks every .agc file, runs the unit tests and the pseudo-terminal tests, on the committed libtermbox2.so.
       - run: make test
+
+  # The committed native/linux/libtermbox2.so must be the build of native/ on the oldest supported glibc. The fresh
+  # build is uploaded, so a change of native/ commits this artifact.
+  native:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - run: make native-verify FRESH="$RUNNER_TEMP/native/libtermbox2.so"
+
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: libtermbox2-linux-x86_64
+          path: ${{ runner.temp }}/native/libtermbox2.so
+          if-no-files-found: error

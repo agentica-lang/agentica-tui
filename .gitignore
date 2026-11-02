@@ -2,7 +2,5 @@
 _build/
 deps/
 tmp/
-native/linux/
-native/macos/
 __pycache__/
 *.agcb
