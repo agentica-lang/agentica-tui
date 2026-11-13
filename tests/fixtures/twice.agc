@@ -18,13 +18,13 @@ def nested(screen: TUI.Screen) -> Result[String]
   inner = TUI.open(&draw)
   try TUI.write(screen, 0, 0, "outer")
   try TUI.present(screen)
-  return ok("#{inner} inside #{tui_ctype()}")
+  ok("#{inner} inside #{tui_ctype()}")
 end
 
 def draw(screen: TUI.Screen) -> Result[String]
   try TUI.write(screen, 0, 0, "┌ again")
   try TUI.present(screen)
-  return ok("drawn")
+  ok("drawn")
 end
 
 # A test helper of native/tui.c.

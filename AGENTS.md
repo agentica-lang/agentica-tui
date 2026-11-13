@@ -35,8 +35,10 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - Search with `rg`.
 - Load the `agentica-programming` and `agentica-code-guidelines` skills of the Agentica repository before writing
   `.agc` code. Lines are at most 119 characters; `agentica fmt --check` passes.
-- The extern block stays private in `src/termbox.agc`; only the wrappers and `Screen` are exported, through
-  `tui.agc`. Decoding and attribute values stay pure (no extern) so the unit tests run without the library.
+- The package API is `tui.agc`: it re-exports `Screen` and the wrappers, never a `tui_*` function. The extern block
+  of `src/termbox.agc` declares the resource `Screen`, so Agentica makes the block public as a whole (its `tui_*`
+  functions too) and puts it above the wrappers; everything else of that file after the wrappers is after `private`.
+  Decoding and attribute values stay pure (no extern) so the unit tests run without the library.
 - termbox2 is never edited: a change goes in `native/tui.c`. A new termbox2 tag updates `native/termbox2/VERSION`.
 - The extern block calls only `tui_*` functions of `native/tui.c`, each taking the screen (so the VM refuses a
   call after the close and never frees the screen during one) and each holding the lock around termbox2. A wait

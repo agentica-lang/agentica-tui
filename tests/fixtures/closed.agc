@@ -3,9 +3,7 @@
 
 import TUI from "../../tui"
 
-def keep(screen: TUI.Screen) -> Result[TUI.Screen]
-  return ok(screen)
-end
+def keep(screen: TUI.Screen) -> Result[TUI.Screen] = ok(screen)
 
 def main() -> Void
   screen = TUI.open(&keep).unwrap!

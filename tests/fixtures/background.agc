@@ -9,7 +9,7 @@ SETTLE_MS = 200
 def main() -> Void
   case TUI.open(&draw)
     ok(waiter) -> puts("waiter #{Task.await(waiter)}")
-    error(message) -> puts("open #{message}")
+    error(e) -> puts("open #{e.message}")
   end
 end
 
@@ -23,9 +23,7 @@ def draw(screen: TUI.Screen) -> Result[Task[Result[TUI.Event]]]
   try TUI.write(screen, 0, 1, "true color", TUI.Style(fg: TUI.Color.Rgb(255, 128, 0)))
   try TUI.set_cursor(screen, 5, 2)
   try TUI.present(screen)
-  return ok(waiter)
+  ok(waiter)
 end
 
-def wait(screen: TUI.Screen) -> Result[TUI.Event]
-  return TUI.poll_event(screen)
-end
+def wait(screen: TUI.Screen) -> Result[TUI.Event] = TUI.poll_event(screen)

@@ -1,6 +1,6 @@
 name = "tui"
-
-# Needs Agentica 0.20.0 or later.
+# The oldest Agentica this package needs.
+agentica = "0.31.0"
 
 [style]
 blank_line_after_end = true
