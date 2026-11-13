@@ -6,7 +6,7 @@ import TUI from "../../tui"
 def main() -> Void
   case TUI.open(&record)
     ok(lines) -> lines.each do |line| puts(line) end
-    error(message) -> fail(message)
+    error(e) -> fail(e.message)
   end
 end
 
@@ -25,14 +25,14 @@ def record(screen: TUI.Screen) -> Result[List[String]]
     try show(screen, "#{event}")
   end
 
-  return ok(lines)
+  ok(lines)
 end
 
 def show(screen: TUI.Screen, text: String) -> Result[Void]
   try TUI.clear(screen)
   try TUI.set_cell(screen, 2, 1, "#", TUI.Style(fg: TUI.Color.Red, attrs: [TUI.Attr.Bold]))
   try TUI.write(screen, 0, 0, text)
-  return TUI.present(screen)
+  TUI.present(screen)
 end
 
 def fail(message: String) -> Void

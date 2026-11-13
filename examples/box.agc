@@ -19,7 +19,7 @@ end
 def main() -> Void
   case TUI.open(&run)
     ok(_) -> puts("bye")
-    error(message) -> IO.warn(message)
+    error(e) -> IO.warn(e.message)
   end
 end
 
@@ -29,14 +29,12 @@ def run(screen: TUI.Screen) -> Result[Void]
   while true
     try draw(screen, demo)
     event = try TUI.poll_event(screen)
-    if quit?(event)
-      break
-    end
+    break if quit?(event)
 
     demo = place(screen, step(demo, event)).with(last: describe(event))
   end
 
-  return ok()
+  ok()
 end
 
 def draw(screen: TUI.Screen, demo: Demo) -> Result[Void]
@@ -56,7 +54,7 @@ def draw(screen: TUI.Screen, demo: Demo) -> Result[Void]
     end
   end
 
-  return TUI.present(screen)
+  TUI.present(screen)
 end
 
 def box_row(row: Int, inner: String, line: String) -> String
@@ -66,26 +64,26 @@ def box_row(row: Int, inner: String, line: String) -> String
     return "└#{line}┘"
   end
 
-  return "│#{inner}│"
+  "│#{inner}│"
 end
 
 def quit?(event: TUI.Event) -> Bool
   case event
-    TUI.Event.Char("q", _) -> return true
-    TUI.Event.Key(TUI.Key.Escape, _) -> return true
-    TUI.Event.Key(TUI.Key.Ctrl("c"), _) -> return true
-    _ -> return false
+    TUI.Event.Char("q", _) -> true
+    TUI.Event.Key(TUI.Key.Escape, _) -> true
+    TUI.Event.Key(TUI.Key.Ctrl("c"), _) -> true
+    _ -> false
   end
 end
 
 def step(demo: Demo, event: TUI.Event) -> Demo
   case event
-    TUI.Event.Key(TUI.Key.Up, _) -> return demo.with(y: demo.y - 1)
-    TUI.Event.Key(TUI.Key.Down, _) -> return demo.with(y: demo.y + 1)
-    TUI.Event.Key(TUI.Key.Left, _) -> return demo.with(x: demo.x - 1)
-    TUI.Event.Key(TUI.Key.Right, _) -> return demo.with(x: demo.x + 1)
-    TUI.Event.Mouse(TUI.Mouse.Left, x, y, _) -> return demo.with(x: x, y: y)
-    _ -> return demo
+    TUI.Event.Key(TUI.Key.Up, _) -> demo.with(y: demo.y - 1)
+    TUI.Event.Key(TUI.Key.Down, _) -> demo.with(y: demo.y + 1)
+    TUI.Event.Key(TUI.Key.Left, _) -> demo.with(x: demo.x - 1)
+    TUI.Event.Key(TUI.Key.Right, _) -> demo.with(x: demo.x + 1)
+    TUI.Event.Mouse(TUI.Mouse.Left, x, y, _) -> demo.with(x: x, y: y)
+    _ -> demo
   end
 end
 
@@ -93,7 +91,7 @@ end
 def place(screen: TUI.Screen, demo: Demo) -> Demo
   x = within(demo.x, 0, TUI.width(screen) - BOX_WIDTH)
   y = within(demo.y, TOP, TUI.height(screen) - BOX_HEIGHT)
-  return demo.with(x: x, y: y)
+  demo.with(x: x, y: y)
 end
 
 def within(value: Int, low: Int, high: Int) -> Int
@@ -103,14 +101,14 @@ def within(value: Int, low: Int, high: Int) -> Int
     return high
   end
 
-  return value
+  value
 end
 
 def describe(event: TUI.Event) -> String
   case event
-    TUI.Event.Key(key, _) -> return "key #{key}"
-    TUI.Event.Char(char, _) -> return "char #{char}"
-    TUI.Event.Mouse(button, x, y, _) -> return "mouse #{button} #{x},#{y}"
-    TUI.Event.Resize(width, height) -> return "resize #{width}x#{height}"
+    TUI.Event.Key(key, _) -> "key #{key}"
+    TUI.Event.Char(char, _) -> "char #{char}"
+    TUI.Event.Mouse(button, x, y, _) -> "mouse #{button} #{x},#{y}"
+    TUI.Event.Resize(width, height) -> "resize #{width}x#{height}"
   end
 end

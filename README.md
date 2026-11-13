@@ -7,7 +7,7 @@ same shared library.
 
 ## Get started
 
-Needs Agentica 0.20.0 or later on Linux x86_64 (glibc 2.33 or later): the package ships
+Needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later): the package ships
 `native/linux/libtermbox2.so`, built by CI on ubuntu-22.04 from `native/`. There is no release tag yet: add it to
 a project at a commit of `main` (the whole commit id):
 
@@ -43,7 +43,7 @@ end
 def main() -> Void
   case TUI.open(&draw)
     ok(_) -> puts("bye")
-    error(message) -> IO.warn(message)
+    error(e) -> IO.warn(e.message)
   end
 end
 ```

@@ -7,22 +7,9 @@
 import Ev from "event"
 import St from "style"
 
-# termbox2.h return values.
-TB_OK = 0
-TB_ERR_NO_EVENT = -6
-TB_ERR_NOT_INIT = -8
-# struct tb_event: uint8_t type, uint8_t mod, uint16_t key, uint32_t ch, then int32_t w, h, x and y.
-EVENT_BYTES = 24
-# A wait with no timeout.
-FOREVER = -1
-MAX_TIMEOUT_MS = 2_147_483_647
-# The longest wait of one tui_wait_event call (TUI_SLICE_MS of native/tui.c): a longer wait is several calls, so a
-# close ends it soon and the VM never waits long for the call to return.
-SLICE_MS = 50
-
 extern "termbox2"
   ## The open terminal. Closing it (`open` does) restores the terminal; so does the end of the program, a crash too.
-  export resource Screen, free: tui_shutdown
+  resource Screen, free: tui_shutdown
 
   # Every function takes the screen, so that the VM refuses a call after the close and never frees the screen
   # during a call.
@@ -52,130 +39,123 @@ end
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
 ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened (no terminal, one
 ## already open), or `error("task crashed: ...")` when the block stops with a runtime error.
-export def open[T](body: Fn[Screen, Result[T]]) -> Result[T]
+def open[T](body: Fn[Screen, Result[T]]) -> Result[T]
   try Native.load("termbox2")
   opened = tui_init()
-  if opened.result != TB_OK
-    return error(failure("open", opened.result))
-  end
+  return error(failure("open", opened.result)) if opened.result != TB_OK
 
   # The block runs in a task of its own so that a crash comes back as an error, which the caller can show once the
   # terminal is restored: the VM's own report of a crash may land on the screen, which closing then wipes.
   screen = opened.screen
   result = Task.await(Task.spawn do body.call(screen) end)
   Native.close(screen)
-  return result
+  result
 end
 
 ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.
-export def width(screen: Screen) -> Int
-  return tui_width(screen)
-end
+def width(screen: Screen) -> Int = tui_width(screen)
 
 ## The height of the terminal in rows.
-export def height(screen: Screen) -> Int
-  return tui_height(screen)
-end
+def height(screen: Screen) -> Int = tui_height(screen)
 
 ## Fills the back buffer with spaces of the style (default colors when left out).
-export def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void]
+def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void]
   fg = try St.fg_value(style)
   bg = try St.bg_value(style)
-  return check("clear", tui_clear(screen, fg, bg))
+  check("clear", tui_clear(screen, fg, bg))
 end
 
 ## Sets the cell at column x, row y (from 0) to one character.
-export def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
-  if char.length != 1
-    return error("tui: set_cell needs one character: #{char.inspect}")
-  end
+def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
+  return error("tui: set_cell needs one character: #{char.inspect}") if char.length != 1
 
   fg = try St.fg_value(style)
   bg = try St.bg_value(style)
-  return check("set_cell", tui_set_cell(screen, x, y, char.code, fg, bg))
+  check("set_cell", tui_set_cell(screen, x, y, char.code, fg, bg))
 end
 
 ## Writes text from column x, row y; what goes past the right edge is cut. Gives the width of the text in columns.
 ## A start outside the screen is an error.
-export def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Style()) -> Result[Int]
-  if text.include?(String.from_code(0))
-    return error("tui: write cannot send a NUL character")
-  end
+def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Style()) -> Result[Int]
+  return error("tui: write cannot send a NUL character") if text.include?(String.from_code(0))
 
   fg = try St.fg_value(style)
   bg = try St.bg_value(style)
   printed = tui_print(screen, x, y, fg, bg, text)
   try check("write", printed.result)
-  return ok(printed.width)
+  ok(printed.width)
 end
 
 ## Shows the back buffer on the terminal: nothing drawn appears before this.
-export def present(screen: Screen) -> Result[Void]
-  return check("present", tui_present(screen))
-end
+def present(screen: Screen) -> Result[Void] = check("present", tui_present(screen))
 
 ## Shows the cursor at column x, row y.
-export def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void]
-  return check("set_cursor", tui_set_cursor(screen, x, y))
-end
+def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = check("set_cursor", tui_set_cursor(screen, x, y))
 
 ## Hides the cursor (as `open` leaves it).
-export def hide_cursor(screen: Screen) -> Result[Void]
-  return check("hide_cursor", tui_hide_cursor(screen))
-end
+def hide_cursor(screen: Screen) -> Result[Void] = check("hide_cursor", tui_hide_cursor(screen))
 
 ## Waits for the next event, or an error once another task closes the screen. Other tasks run (and may draw)
 ## meanwhile.
-export def poll_event(screen: Screen) -> Result[Ev.Event]
+def poll_event(screen: Screen) -> Result[Ev.Event]
   found = try wait_event(screen, FOREVER)
-  return found.to_result("tui: poll_event: no event")
+  found.to_result("tui: poll_event: no event")
 end
 
 ## Waits up to timeout_ms milliseconds for an event: `none` when none came.
-export def peek_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
+def peek_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
   if timeout_ms < 0 or timeout_ms > MAX_TIMEOUT_MS
     return error("tui: peek_event timeout out of range 0..#{MAX_TIMEOUT_MS}: #{timeout_ms}")
   end
 
-  return wait_event(screen, timeout_ms)
+  wait_event(screen, timeout_ms)
 end
 
 ## Sets how Escape is read, and whether mouse events come.
-export def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> Result[Void]
-  return check("set_input_mode", tui_set_input_mode(screen, Ev.input_mode_value(mode, mouse)))
+def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> Result[Void]
+  check("set_input_mode", tui_set_input_mode(screen, Ev.input_mode_value(mode, mouse)))
 end
 
 ## Sets how colors are sent (`Normal` at the start).
-export def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void]
-  return check("set_output_mode", tui_set_output_mode(screen, St.output_mode_value(mode)))
+def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void]
+  check("set_output_mode", tui_set_output_mode(screen, St.output_mode_value(mode)))
 end
+
+private
+
+# termbox2.h return values.
+TB_OK = 0
+TB_ERR_NO_EVENT = -6
+TB_ERR_NOT_INIT = -8
+# struct tb_event: uint8_t type, uint8_t mod, uint16_t key, uint32_t ch, then int32_t w, h, x and y.
+EVENT_BYTES = 24
+# A wait with no timeout.
+FOREVER = -1
+MAX_TIMEOUT_MS = 2_147_483_647
+# The longest wait of one tui_wait_event call (TUI_SLICE_MS of native/tui.c): a longer wait is several calls, so a
+# close ends it soon and the VM never waits long for the call to return.
+SLICE_MS = 50
 
 # Waits in calls of at most SLICE_MS, checking between them that the screen is open. An event termbox2 does not
 # make (Ev.decode gives none) is skipped.
 def wait_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
   deadline = Time.monotonic_ms() + timeout_ms
-  return Native.memory_pointer(EVENT_BYTES) do |buffer|
+  Native.memory_pointer(EVENT_BYTES) do |buffer|
     while true
       # A close between this test and the call stops the task with RUNTIME-NATIVE-CLOSED (a rare race).
-      if Native.closed?(screen)
-        return error("tui: the screen is closed")
-      end
+      return error("tui: the screen is closed") if Native.closed?(screen)
 
       code = tui_wait_event(screen, buffer, slice(deadline, timeout_ms))
       if code == TB_OK
         found = Ev.decode(read_event(buffer))
-        if found.some?
-          return ok(found)
-        end
+        return ok(found) if found.some?
       elsif code == TB_ERR_NOT_INIT
         return error("tui: the screen is closed")
       elsif code != TB_ERR_NO_EVENT
         return error(failure("wait_event", code))
       end
 
-      if timeout_ms != FOREVER and Time.monotonic_ms() >= deadline
-        return ok(none)
-      end
+      return ok(none) if timeout_ms != FOREVER and Time.monotonic_ms() >= deadline
     end
 
     ok(none)
@@ -190,11 +170,11 @@ def slice(deadline: Int, timeout_ms: Int) -> Int
     return 0
   end
 
-  return left
+  left
 end
 
 def read_event(buffer: C.Pointer) -> Ev.Raw
-  return Ev.Raw(
+  Ev.Raw(
     kind: Native.get_uint8(buffer, 0),
     mod: Native.get_uint8(buffer, 1),
     key: Native.get_uint16(buffer, 2),
@@ -207,13 +187,9 @@ def read_event(buffer: C.Pointer) -> Ev.Raw
 end
 
 def check(what: String, code: Int) -> Result[Void]
-  if code < TB_OK
-    return error(failure(what, code))
-  end
+  return error(failure(what, code)) if code < TB_OK
 
-  return ok()
+  ok()
 end
 
-def failure(what: String, code: Int) -> String
-  return "tui: #{what} failed: #{tui_strerror(code)} (#{code})"
-end
+def failure(what: String, code: Int) -> String = "tui: #{what} failed: #{tui_strerror(code)} (#{code})"

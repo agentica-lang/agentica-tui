@@ -13,7 +13,7 @@
 ## def main() -> Void
 ##   case TUI.open(&draw)
 ##     ok(_) -> puts("bye")
-##     error(message) -> IO.warn(message)
+##     error(e) -> IO.warn(e.message)
 ##   end
 ## end
 ## ```

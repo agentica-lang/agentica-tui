@@ -6,7 +6,7 @@ import TUI from "../../tui"
 def main() -> Void
   case TUI.open(&crash)
     ok(_) -> puts("not reached")
-    error(message) -> fail(message)
+    error(e) -> fail(e.message)
   end
 end
 
@@ -15,7 +15,7 @@ def crash(screen: TUI.Screen) -> Result[Void]
   try TUI.present(screen)
   # A list index past the end halts the program (RUNTIME-INDEX-OUT-OF-RANGE).
   puts(System.args()[5])
-  return ok()
+  ok()
 end
 
 def fail(message: String) -> Void

@@ -1,5 +1,114 @@
 ## Input events: keys, characters, mouse and resize, decoded from the fields of a termbox2 `struct tb_event`.
 
+## The fields of a termbox2 `struct tb_event`, as numbers.
+struct Raw
+  kind: Int
+  mod: Int
+  key: Int
+  ch: Int
+  width: Int = 0
+  height: Int = 0
+  x: Int = 0
+  y: Int = 0
+end
+
+## The modifier keys held with a key or a mouse event. `motion` is a mouse move with a button down.
+struct Mods
+  alt: Bool = false
+  ctrl: Bool = false
+  shift: Bool = false
+  motion: Bool = false
+end
+
+## A key that is not a character.
+enum Key
+  Up
+  Down
+  Left
+  Right
+  Enter
+  Escape
+  Tab
+  BackTab
+  Backspace
+  Insert
+  Delete
+  Home
+  End
+  PageUp
+  PageDown
+  ## A function key, 1 to 12.
+  F(Int)
+  ## Ctrl and a character in caret notation, lowercase for a letter: `Ctrl("c")`, `Ctrl("@")`.
+  Ctrl(String)
+  ## A termbox2 key code this library does not name.
+  Other(Int)
+end
+
+## A mouse button, or the wheel.
+enum Mouse
+  Left
+  Right
+  Middle
+  Release
+  WheelUp
+  WheelDown
+end
+
+## An input event.
+enum Event
+  Key(Key, Mods)
+  ## A typed character (a space too), with the modifiers.
+  Char(String, Mods)
+  ## A mouse button at the cell x, y (columns and rows from 0).
+  Mouse(Mouse, Int, Int, Mods)
+  ## The new width and height of the terminal.
+  Resize(Int, Int)
+end
+
+## How a lone Escape byte is read: as `Key.Escape` (`Esc`, the default) or as Alt held with the next key (`Alt`).
+enum InputMode
+  Esc
+  Alt
+end
+
+## The event of the fields termbox2 gave, or `none` for an event kind termbox2 does not make. A mouse event with a
+## key this library does not name is `Key(Key.Other(code), mods)`.
+def decode(raw: Raw) -> Optional[Event]
+  if raw.kind == KIND_KEY
+    return some(key_event(raw))
+  elsif raw.kind == KIND_RESIZE
+    return some(Event.Resize(raw.width, raw.height))
+  elsif raw.kind == KIND_MOUSE
+    return some(mouse_event(raw))
+  end
+
+  none
+end
+
+## The termbox2 value of an input mode, with mouse events or not.
+def input_mode_value(mode: InputMode, mouse: Bool) -> Int
+  case mode
+    InputMode.Esc -> INPUT_ESC.bit_or(mouse_flag(mouse))
+    InputMode.Alt -> INPUT_ALT.bit_or(mouse_flag(mouse))
+  end
+end
+
+## The modifiers of the bits of `tb_event.mod`.
+def mods(bits: Int) -> Mods
+  Mods(
+    alt: bit?(bits, MOD_ALT),
+    ctrl: bit?(bits, MOD_CTRL),
+    shift: bit?(bits, MOD_SHIFT),
+    motion: bit?(bits, MOD_MOTION),
+  )
+end
+
+## The key of a termbox2 key code.
+def key(code: Int) -> Key = NAMED_CONTROLS.get(code).unwrap_or(other_key(code))
+
+private
+
 # termbox2.h `TB_EVENT_*`.
 KIND_KEY = 1
 KIND_RESIZE = 2
@@ -40,172 +149,47 @@ TERMINAL_KEYS = [
 ]
 MOUSE_BUTTONS = [Mouse.Left, Mouse.Right, Mouse.Middle, Mouse.Release, Mouse.WheelUp, Mouse.WheelDown]
 
-## The fields of a termbox2 `struct tb_event`, as numbers.
-export struct Raw
-  kind: Int
-  mod: Int
-  key: Int
-  ch: Int
-  width: Int = 0
-  height: Int = 0
-  x: Int = 0
-  y: Int = 0
-end
-
-## The modifier keys held with a key or a mouse event. `motion` is a mouse move with a button down.
-export struct Mods
-  alt: Bool = false
-  ctrl: Bool = false
-  shift: Bool = false
-  motion: Bool = false
-end
-
-## A key that is not a character.
-export enum Key
-  Up
-  Down
-  Left
-  Right
-  Enter
-  Escape
-  Tab
-  BackTab
-  Backspace
-  Insert
-  Delete
-  Home
-  End
-  PageUp
-  PageDown
-  ## A function key, 1 to 12.
-  F(Int)
-  ## Ctrl and a character in caret notation, lowercase for a letter: `Ctrl("c")`, `Ctrl("@")`.
-  Ctrl(String)
-  ## A termbox2 key code this library does not name.
-  Other(Int)
-end
-
-## A mouse button, or the wheel.
-export enum Mouse
-  Left
-  Right
-  Middle
-  Release
-  WheelUp
-  WheelDown
-end
-
-## An input event.
-export enum Event
-  Key(Key, Mods)
-  ## A typed character (a space too), with the modifiers.
-  Char(String, Mods)
-  ## A mouse button at the cell x, y (columns and rows from 0).
-  Mouse(Mouse, Int, Int, Mods)
-  ## The new width and height of the terminal.
-  Resize(Int, Int)
-end
-
-## How a lone Escape byte is read: as `Key.Escape` (`Esc`, the default) or as Alt held with the next key (`Alt`).
-export enum InputMode
-  Esc
-  Alt
-end
-
-## The event of the fields termbox2 gave, or `none` for an event kind termbox2 does not make. A mouse event with a
-## key this library does not name is `Key(Key.Other(code), mods)`.
-export def decode(raw: Raw) -> Optional[Event]
-  if raw.kind == KIND_KEY
-    return some(key_event(raw))
-  elsif raw.kind == KIND_RESIZE
-    return some(Event.Resize(raw.width, raw.height))
-  elsif raw.kind == KIND_MOUSE
-    return some(mouse_event(raw))
-  end
-
-  return none
-end
-
-## The termbox2 value of an input mode, with mouse events or not.
-export def input_mode_value(mode: InputMode, mouse: Bool) -> Int
-  case mode
-    InputMode.Esc -> return INPUT_ESC.bit_or(mouse_flag(mouse))
-    InputMode.Alt -> return INPUT_ALT.bit_or(mouse_flag(mouse))
-  end
-end
-
-## The modifiers of the bits of `tb_event.mod`.
-export def mods(bits: Int) -> Mods
-  return Mods(
-    alt: bit?(bits, MOD_ALT),
-    ctrl: bit?(bits, MOD_CTRL),
-    shift: bit?(bits, MOD_SHIFT),
-    motion: bit?(bits, MOD_MOTION),
-  )
-end
-
-## The key of a termbox2 key code.
-export def key(code: Int) -> Key
-  return NAMED_CONTROLS.get(code).unwrap_or(other_key(code))
-end
-
 def key_event(raw: Raw) -> Event
-  if raw.ch != 0
-    return Event.Char(char(raw.ch), mods(raw.mod))
-  end
+  return Event.Char(char(raw.ch), mods(raw.mod)) if raw.ch != 0
 
   found = key(raw.key)
   held = mods(raw.mod)
   # termbox2 marks every ASCII control byte with Ctrl; only Ctrl(...) keys are typed with it.
   case found
-    Key.Ctrl(_) -> return Event.Key(found, held)
-    _ -> return Event.Key(found, held.with(ctrl: false))
+    Key.Ctrl(_) -> Event.Key(found, held)
+    _ -> Event.Key(found, held.with(ctrl: false))
   end
 end
 
 def char(code: Int) -> String
-  if SURROGATES.include?(code) or code > MAX_CODE_POINT
-    return String.from_code(REPLACEMENT)
-  end
+  return String.from_code(REPLACEMENT) if SURROGATES.include?(code) or code > MAX_CODE_POINT
 
-  return String.from_code(code)
+  String.from_code(code)
 end
 
 def other_key(code: Int) -> Key
-  if code >= 0 and code <= LAST_CONTROL
-    return Key.Ctrl(String.from_code(code + CARET_OFFSET).downcase)
-  end
+  return Key.Ctrl(String.from_code(code + CARET_OFFSET).downcase) if code >= 0 and code <= LAST_CONTROL
 
   index = KEY_TOP - code
-  if index >= 0 and index < FUNCTION_KEYS
-    return Key.F(index + 1)
-  end
+  return Key.F(index + 1) if index >= 0 and index < FUNCTION_KEYS
 
   terminal = index - FUNCTION_KEYS
-  if terminal >= 0 and terminal < TERMINAL_KEYS.size
-    return TERMINAL_KEYS[terminal]
-  end
+  return TERMINAL_KEYS[terminal] if terminal >= 0 and terminal < TERMINAL_KEYS.size
 
-  return Key.Other(code)
+  Key.Other(code)
 end
 
 def mouse_event(raw: Raw) -> Event
   index = KEY_TOP - raw.key - FUNCTION_KEYS - TERMINAL_KEYS.size
-  if index >= 0 and index < MOUSE_BUTTONS.size
-    return Event.Mouse(MOUSE_BUTTONS[index], raw.x, raw.y, mods(raw.mod))
-  end
+  return Event.Mouse(MOUSE_BUTTONS[index], raw.x, raw.y, mods(raw.mod)) if index >= 0 and index < MOUSE_BUTTONS.size
 
-  return Event.Key(Key.Other(raw.key), mods(raw.mod))
+  Event.Key(Key.Other(raw.key), mods(raw.mod))
 end
 
 def mouse_flag(mouse: Bool) -> Int
-  if mouse
-    return INPUT_MOUSE
-  end
+  return INPUT_MOUSE if mouse
 
-  return 0
+  0
 end
 
-def bit?(bits: Int, flag: Int) -> Bool
-  return bits.bit_and(flag) != 0
-end
+def bit?(bits: Int, flag: Int) -> Bool = bits.bit_and(flag) != 0
