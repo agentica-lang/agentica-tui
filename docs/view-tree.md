@@ -1,7 +1,8 @@
 # View tree
 
 A view is a tree of `TUI.Node` values. `TUI.render(screen, node)` clears the screen, draws the tree over all of it
-and presents it.
+and presents it. It gives back the `TUI.Grid` the screen now shows; pass it as `last` to the next `render`, which then
+writes only the cells that changed and does not clear.
 
 ```ruby
 import TUI from "pkg/tui/tui"
@@ -34,6 +35,9 @@ These build the variants of `Node`: `Text(text, style)`, `Row(children)`, `Col(c
 `TUI.layout(node, width, height)` gives the cells of a tree on a screen of that size, with no terminal: a list of
 `Cell(x:, y:, char:, style:)`. `render` draws those cells. Nothing is drawn outside the screen. Each node is
 measured once per level of the tree, so the time grows with the size of the tree times its depth.
+
+`TUI.diff(old, new)` gives the cells to write to turn one `Grid` into another: those that differ, or all of `new`
+when the size differs.
 
 `TUI.wrap(text, width)` gives the lines that `text` wraps to.
 

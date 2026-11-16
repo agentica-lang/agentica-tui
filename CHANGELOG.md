@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
+  frame no longer clears the screen. `TUI.diff` compares two grids.
 - `TUI.open`, a block form that opens the terminal and always restores it; a crash in the block comes back as an
   error.
 - Drawing: `clear`, `set_cell`, `write`, `present`, `width`, `height`, `set_cursor` and `hide_cursor`, with `Style`,

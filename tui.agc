@@ -19,6 +19,7 @@
 ## ```
 
 import Ev from "src/event"
+import Gr from "src/grid"
 import St from "src/style"
 import Tb from "src/termbox"
 import View from "src/view"
@@ -61,3 +62,6 @@ export View.spacer
 export View.Cell
 export View.layout
 export View.wrap
+export Gr.Grid
+export Gr.Glyph
+export Gr.diff

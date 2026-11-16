@@ -5,6 +5,7 @@
 ## every termbox2 call under one lock.
 
 import Ev from "event"
+import Gr from "grid"
 import St from "style"
 import View from "view"
 
@@ -95,22 +96,31 @@ def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Sty
   ok(printed.width)
 end
 
-## Clears the screen, draws `node` over all of it (`View.layout`) and shows it.
-def render(screen: Screen, node: View.Node) -> Result[Void]
-  try clear(screen)
-  for cell in View.layout(node, width(screen), height(screen))
+## Draws `node` over the whole screen and shows it. Only the cells that differ from `last` (what the screen shows) are
+## written; with no `last`, the screen is cleared first. Gives what the screen shows now, for the next call.
+def render(screen: Screen, node: View.Node, last: Optional[Gr.Grid] = none) -> Result[Gr.Grid]
+  shown = case last
+    some(grid) -> grid
+    none -> try cleared(screen)
+  end
+
+  next = Gr.of(node, width(screen), height(screen))
+  for cell in Gr.diff(shown, next)
     try set_cell(screen, cell.x, cell.y, cell.char, cell.style)
   end
 
-  present(screen)
+  try present(screen)
+  ok(next)
 end
 
 ## Runs an Elm-like loop from `model`: renders `view(model)`, waits for an event and gives it to `update`, until
 ## `update` gives `Step.Quit`. Gives the last model.
 def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Step[M]], view: Fn[M, View.Node]) -> Result[M]
   current = model
+  shown: Optional[Gr.Grid] = none
   while true
-    try render(screen, view.call(current))
+    drawn = try render(screen, view.call(current), shown)
+    shown = some(drawn)
     case update.call(current, try poll_event(screen))
       Step.Continue(next_model) -> current = next_model
       Step.Quit -> break
@@ -218,6 +228,11 @@ def read_event(buffer: C.Pointer) -> Ev.Raw
     x: Native.get_int32(buffer, 16),
     y: Native.get_int32(buffer, 20),
   )
+end
+
+def cleared(screen: Screen) -> Result[Gr.Grid]
+  try clear(screen)
+  ok(Gr.blank(width(screen), height(screen)))
 end
 
 def with_paste(screen: Screen, raw: Ev.Raw) -> Ev.Raw
