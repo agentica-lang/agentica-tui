@@ -16,9 +16,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   is skipped.
 - `Style` has the fields `bold`, `dim`, `italic`, `underline` and `reverse` (`attrs` still works), and
   `TUI.merge(base, over)` puts one style on top of another.
-- A view tree: `TUI.Node` (`Text`, `Row`, `Col`, `Box`, `Spacer`) drawn by `TUI.render(screen, node)`, measured in
-  terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its cells without a terminal.
-- `TUI.program(screen, model, update, view)`, an Elm-like loop over the view tree.
+- A view tree: `TUI.Node`, built with `TUI.text`, `row`, `col`, `box` and `spacer`, drawn by
+  `TUI.render(screen, node)`, measured in terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its
+  cells without a terminal.
+- `TUI.program(screen, model, update, view)`, an Elm-like loop over the view tree; `update` gives a `Step`.
 - Bracketed paste: the screen turns it on and off, and a paste is one `Event.Paste(text)`, so its keys never come
   as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
