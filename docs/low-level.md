@@ -1,7 +1,7 @@
 # Low level
 
-Under the [view tree](view-tree.md) is a grid of cells with a back buffer. Every function that can fail gives a
-`Result`.
+`TUI.Raw` is the terminal by hand, for what [`TUI.run`](elm-loop.md) does not cover. Under the
+[view tree](view-tree.md) is a grid of cells with a back buffer. Every function that can fail gives a `Result`.
 
 - `open(body)`: opens the terminal (full screen, raw input, no cursor), gives the block a `Screen`, and closes it
   when the block ends.
@@ -14,6 +14,8 @@ Under the [view tree](view-tree.md) is a grid of cells with a back buffer. Every
 - `set_cursor(screen, x, y)`, `hide_cursor(screen)`.
 - `poll_event(screen)`, `peek_event(screen, timeout_ms)`: see [Events](events.md).
 - `set_input_mode(screen, mode, mouse)`, `set_output_mode(screen, mode)`.
+- `render(screen, node, last)`, `diff(old, new)`, `Grid`: see [View tree](view-tree.md).
+- `program(screen, app)`: the loop of `TUI.run` on a screen already open.
 
 `style` may be left out. A loop written by hand with a one-second wait (in [`TUI.run`](elm-loop.md) it is a
 `Sub.Tick`):
@@ -21,12 +23,12 @@ Under the [view tree](view-tree.md) is a grid of cells with a back buffer. Every
 ```ruby
 import TUI from "pkg/tui/tui"
 
-def clock(screen: TUI.Screen) -> Result[Void]
+def clock(screen: TUI.Raw.Screen) -> Result[Void]
   while true
-    try TUI.clear(screen)
-    _ = try TUI.write(screen, 0, 0, "#{Time.now_ms() / 1000} s, q quits")
-    try TUI.present(screen)
-    case try TUI.peek_event(screen, 1000)
+    try TUI.Raw.clear(screen)
+    _ = try TUI.Raw.write(screen, 0, 0, "#{Time.now_ms() / 1000} s, q quits")
+    try TUI.Raw.present(screen)
+    case try TUI.Raw.peek_event(screen, 1000)
       some(TUI.Event.Char("q", _)) -> break
       _ -> nil
     end
@@ -36,7 +38,7 @@ def clock(screen: TUI.Screen) -> Result[Void]
 end
 
 def main() -> Void
-  case TUI.open(&clock)
+  case TUI.Raw.open(&clock)
     ok(_) -> puts("bye")
     error(e) -> IO.warn(e.message)
   end

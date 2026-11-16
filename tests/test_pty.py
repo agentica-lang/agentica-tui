@@ -170,6 +170,8 @@ class PtyTest(unittest.TestCase):
         # The subscription to the ticks ends at 3.
         term._read(0.3)
         self.assertEqual(screen_rows(term.output[term.output.rfind(ENTER_SCREEN) :])[0], "ticks 3")
+        # App(mouse: true) turns mouse reports on.
+        self.assertIn(b"\x1b[?1000h", term.output)
         term.send(b"r")
         term.wait_for_row(1, "ran done")
         term.send(b"q")
@@ -210,6 +212,14 @@ class PtyTest(unittest.TestCase):
         # One tick per 50 ms; a lost tick per key would leave far fewer.
         self.assertGreaterEqual(int(found.group(1)), int(elapsed / 0.05 * 0.8))
         self.assertGreater(int(found.group(2)), 50)
+
+    def test_messages_after_a_quit_never_reach_update(self) -> None:
+        term = self.start("ticks.agc")
+        term.wait_for_row(0, "ticks 0 keys 0")
+        term.send(b"kkqkkk")
+
+        self.assertEqual(term.finish(), 0)
+        self.assertRegex(term.output[term.output.rindex(LEAVE_SCREEN) :], rb"ticks \d+ keys 2\b")
 
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")

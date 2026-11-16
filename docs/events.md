@@ -1,6 +1,6 @@
 # Events
 
-`TUI.poll_event(screen)` waits for the next `Event`; `TUI.peek_event(screen, timeout_ms)` gives `none` when none
+`TUI.Raw.poll_event(screen)` waits for the next `Event`; `TUI.Raw.peek_event(screen, timeout_ms)` gives `none` when none
 comes in time. [`TUI.run`](elm-loop.md) gives them to a `Sub.Events` subscription.
 
 - `Key(Key, Mods)`: a key that is not a character.
@@ -31,11 +31,11 @@ end
 `Mods` has `alt`, `ctrl`, `shift` and `motion` (a mouse move with a button down).
 
 A lone Escape byte is read as `Key.Escape` (`InputMode.Esc`, the default) or as Alt with the next key
-(`InputMode.Alt`): `TUI.set_input_mode(screen, TUI.InputMode.Alt)`.
+(`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`.
 
 ## Mouse
 
-Mouse events come only after `TUI.set_input_mode(screen, mode, true)`. `Mouse` is `Left`, `Right`, `Middle`,
+Mouse events come only with `TUI.App(..., mouse: true)`. `Mouse` is `Left`, `Right`, `Middle`,
 `Release`, `WheelUp` or `WheelDown`. A report whose cell is outside the screen gives the nearest cell inside it.
 
 ## Paste
@@ -52,5 +52,5 @@ anything, and a confirmation should not rest on keys alone.
 
 ## Resize
 
-`Resize(width, height)` comes when the terminal changes size; `TUI.width(screen)` and `TUI.height(screen)` give the
+`Resize(width, height)` comes when the terminal changes size; `TUI.Raw.width(screen)` and `TUI.Raw.height(screen)` give the
 new size after it. `TUI.run` draws the view again after a resize, with or without `Sub.Events`.

@@ -3,6 +3,7 @@
 
 import Ev from "event"
 import Gr from "grid"
+import St from "style"
 import Tb from "termbox"
 import View from "view"
 
@@ -28,14 +29,17 @@ struct Step[M, Msg]
   cmds: List[Cmd[Msg]] = []
 end
 
-## A program: the first model, how a message changes it, what it shows and what it listens to, and the commands
-## to run at the start.
+## A program: the first model, how a message changes it, what it shows and what it listens to, the commands to
+## run at the start, and the terminal modes: how Escape is read, whether mouse events come, and how colors are sent.
 struct App[M, Msg]
   model: M
   update: Fn[M, Msg, Step[M, Msg]]
   view: Fn[M, View.Node]
   subscriptions: Fn[M, List[Sub[Msg]]]
   cmds: List[Cmd[Msg]] = []
+  input: Ev.InputMode = Ev.InputMode.Esc
+  mouse: Bool = false
+  output: St.OutputMode = St.OutputMode.Normal
 end
 
 ## Opens the terminal, runs `app` on it with `program` and closes it. Gives the last model, or the error once the
@@ -46,6 +50,8 @@ def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(sc
 ## came together it draws `view(model)`. Gives an error when the terminal fails or `update`, `view`,
 ## `subscriptions` or a `Cmd.Run` function stops with a runtime error. A key typed after the quit may be lost.
 def program[M, Msg](screen: Tb.Screen, app: App[M, Msg]) -> Result[M]
+  try Tb.set_input_mode(screen, app.input, mouse: app.mouse)
+  try Tb.set_output_mode(screen, app.output)
   inbox: Channel[Input[Msg]] = Channel.new(INBOX)
   stop: Channel[Bool] = Channel.new(1)
   reader = Task.spawn do read_events(screen, inbox, stop) end
@@ -189,6 +195,9 @@ end
 def updated[M, Msg](update: Fn[M, Msg, Step[M, Msg]], model: M, msgs: List[Msg]) -> Step[M, Msg]
   step: Step[M, Msg] = Step(model: model)
   for msg in msgs
+    # The messages after a quit never reach `update`.
+    break if step.cmds.any?(&quit?)
+
     next_step = update.call(step.model, msg)
     step = Step(model: next_step.model, cmds: step.cmds + next_step.cmds)
   end

@@ -19,7 +19,7 @@ end
 - `attrs`: the attributes with no field of their own, from `Attr`: `Blink`, `Bright` (bright colors in mode
   `Normal`), `Strikeout`, `DoubleUnderline`, `Overline`, `Invisible`. Terminals show some of them only.
 
-`TUI.set_output_mode(screen, mode)` picks how the terminal reads colors: `OutputMode.Normal`, `Colors256` or
+`TUI.App(..., output: mode)` picks how the terminal reads colors: `OutputMode.Normal`, `Colors256` or
 `Truecolor`.
 
 ## Merge

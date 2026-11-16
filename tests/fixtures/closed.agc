@@ -3,9 +3,9 @@
 
 import TUI from "../../tui"
 
-def keep(screen: TUI.Screen) -> Result[TUI.Screen] = ok(screen)
+def keep(screen: TUI.Raw.Screen) -> Result[TUI.Raw.Screen] = ok(screen)
 
 def main() -> Void
-  screen = TUI.open(&keep).unwrap!
-  puts(TUI.write(screen, 0, 0, "late"))
+  screen = TUI.Raw.open(&keep).unwrap!
+  puts(TUI.Raw.write(screen, 0, 0, "late"))
 end

@@ -4,17 +4,17 @@
 import TUI from "../../tui"
 
 def main() -> Void
-  case TUI.open(&record)
+  case TUI.Raw.open(&record)
     ok(lines) -> lines.each do |line| puts(line) end
     error(e) -> IO.warn(e.message)
   end
 end
 
-def record(screen: TUI.Screen) -> Result[List[String]]
+def record(screen: TUI.Raw.Screen) -> Result[List[String]]
   lines: List[String] = []
   try show(screen, "ready")
   while true
-    event = try TUI.poll_event(screen)
+    event = try TUI.Raw.poll_event(screen)
     line = describe(event)
     case event
       TUI.Event.Char("q", _) -> break
@@ -34,8 +34,8 @@ def describe(event: TUI.Event) -> String
   end
 end
 
-def show(screen: TUI.Screen, text: String) -> Result[Void]
-  try TUI.clear(screen)
-  try TUI.write(screen, 0, 0, text)
-  TUI.present(screen)
+def show(screen: TUI.Raw.Screen, text: String) -> Result[Void]
+  try TUI.Raw.clear(screen)
+  try TUI.Raw.write(screen, 0, 0, text)
+  TUI.Raw.present(screen)
 end

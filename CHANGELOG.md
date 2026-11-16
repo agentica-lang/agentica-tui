@@ -37,6 +37,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking:** the terminal by hand moves to `TUI.Raw`: `open`, `width`, `height`, `clear`, `set_cell`, `write`,
+  `present`, `render`, `diff`, `program`, `set_cursor`, `hide_cursor`, `poll_event`, `peek_event`,
+  `set_input_mode`, `set_output_mode`, `Screen`, `Grid` and `Glyph` (was `TUI.open` and so on); `TUI.run` is the
+  main way.
+- `TUI.App` has `input`, `mouse` and `output` for the terminal modes, which `TUI.run` sets.
+- The messages that come after a `Cmd.Quit` in one batch no longer reach `update`.
 - **Breaking:** `TUI.render` gives `Result[Grid]` (was `Result[Void]`).
 - **Breaking:** `TUI.program` takes a `TUI.App`; `update` gets your messages and gives `TUI.Step(model:, cmds:)`,
   and `Cmd.Quit` ends the loop (was `Step.Continue` and `Step.Quit`).

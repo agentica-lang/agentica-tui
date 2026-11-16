@@ -1,18 +1,27 @@
-## A terminal UI library on termbox2: a full-screen grid of cells, colors, and key, mouse and resize events.
+## A terminal UI library on termbox2: an Elm loop over a view tree, with key, mouse, paste, resize and tick
+## messages. `Raw` is the terminal by hand: cells, present and waiting for events.
 ##
 ## ```ruby
 ## import TUI from "pkg/tui/tui"
 ##
-## def draw(screen: TUI.Screen) -> Result[Void]
-##   try TUI.write(screen, 0, 0, "hello, press a key", TUI.Style(fg: TUI.Color.Green))
-##   try TUI.present(screen)
-##   _ = try TUI.poll_event(screen)
-##   return ok()
+## enum Msg
+##   Key(TUI.Event)
 ## end
 ##
+## def update(count: Int, msg: Msg) -> TUI.Step[Int, Msg]
+##   case msg
+##     Msg.Key(TUI.Event.Char("q", _)) -> TUI.Step(model: count, cmds: [TUI.Cmd.Quit])
+##     Msg.Key(_) -> TUI.Step(model: count + 1)
+##   end
+## end
+##
+## def view(count: Int) -> TUI.Node = TUI.text("#{count} keys, q quits")
+##
+## def subscriptions(_count: Int) -> List[TUI.Sub[Msg]] = [TUI.Sub.Events(->(event) { Msg.Key(event) })]
+##
 ## def main() -> Void
-##   case TUI.open(&draw)
-##     ok(_) -> puts("bye")
+##   case TUI.run(TUI.App(model: 0, update: &update, view: &view, subscriptions: &subscriptions))
+##     ok(count) -> puts("#{count} keys")
 ##     error(e) -> IO.warn(e.message)
 ##   end
 ## end
@@ -25,27 +34,11 @@ import St from "src/style"
 import Tb from "src/termbox"
 import View from "src/view"
 
-export Tb.Screen
-export Tb.open
-export Tb.width
-export Tb.height
-export Tb.clear
-export Tb.set_cell
-export Tb.write
-export Tb.present
-export Tb.render
 export Pg.run
-export Pg.program
 export Pg.App
 export Pg.Step
 export Pg.Cmd
 export Pg.Sub
-export Tb.set_cursor
-export Tb.hide_cursor
-export Tb.poll_event
-export Tb.peek_event
-export Tb.set_input_mode
-export Tb.set_output_mode
 export Ev.Event
 export Ev.Key
 export Ev.Mouse
@@ -67,6 +60,74 @@ export View.spacer
 export View.Cell
 export View.layout
 export View.wrap
-export Gr.Grid
-export Gr.Glyph
-export Gr.diff
+
+## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.
+module Raw
+  ## The open terminal.
+  type Screen = Tb.Screen
+
+  ## A screen as a value, as `render` gives it.
+  type Grid = Gr.Grid
+
+  ## What one cell of a `Grid` shows.
+  type Glyph = Gr.Glyph
+
+  ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
+  ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened, or
+  ## `error("task crashed: ...")` when the block stops with a runtime error.
+  def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tb.open(body)
+
+  ## Runs `app` on an open screen, as `run` does.
+  def program[M, Msg](screen: Screen, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(screen, app)
+
+  ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.
+  def width(screen: Screen) -> Int = Tb.width(screen)
+
+  ## The height of the terminal in rows.
+  def height(screen: Screen) -> Int = Tb.height(screen)
+
+  ## Fills the back buffer with spaces of the style.
+  def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void] = Tb.clear(screen, style)
+
+  ## Sets the cell at column x, row y (from 0) to one character.
+  def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
+    Tb.set_cell(screen, x, y, char, style)
+  end
+
+  ## Writes text from column x, row y; what goes past the right edge is cut. Gives the width of the text.
+  def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Style()) -> Result[Int]
+    Tb.write(screen, x, y, text, style)
+  end
+
+  ## Shows the back buffer on the terminal: nothing drawn appears before this.
+  def present(screen: Screen) -> Result[Void] = Tb.present(screen)
+
+  ## Draws `node` over the whole screen and shows it, writing only the cells that differ from `last`, and gives what
+  ## the screen shows now.
+  def render(screen: Screen, node: View.Node, last: Optional[Grid] = none) -> Result[Grid]
+    Tb.render(screen, node, last)
+  end
+
+  ## The cells to write to turn `old` into `new`.
+  def diff(old: Grid, new: Grid) -> List[View.Cell] = Gr.diff(old, new)
+
+  ## Shows the cursor at column x, row y.
+  def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = Tb.set_cursor(screen, x, y)
+
+  ## Hides the cursor.
+  def hide_cursor(screen: Screen) -> Result[Void] = Tb.hide_cursor(screen)
+
+  ## Waits for the next event; other tasks run (and may draw) meanwhile.
+  def poll_event(screen: Screen) -> Result[Ev.Event] = Tb.poll_event(screen)
+
+  ## Waits up to timeout_ms milliseconds for an event: `none` when none came.
+  def peek_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]] = Tb.peek_event(screen, timeout_ms)
+
+  ## Sets how Escape is read, and whether mouse events come.
+  def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> Result[Void]
+    Tb.set_input_mode(screen, mode, mouse: mouse)
+  end
+
+  ## Sets how colors are sent.
+  def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void] = Tb.set_output_mode(screen, mode)
+end

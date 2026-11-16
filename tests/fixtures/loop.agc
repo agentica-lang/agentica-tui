@@ -15,7 +15,7 @@ enum Msg
 end
 
 def main() -> Void
-  app = TUI.App(model: Model(), update: &update, view: &view, subscriptions: &subscriptions)
+  app = TUI.App(model: Model(), update: &update, view: &view, subscriptions: &subscriptions, mouse: true)
   case TUI.run(app)
     ok(model) -> puts("ticks #{model.ticks}, ran #{model.ran}")
     error(e) -> fail(e.message)
