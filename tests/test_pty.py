@@ -262,6 +262,7 @@ class PtyTest(unittest.TestCase):
             ("ñ".encode(), 'Event.Char("ñ"'),
             (b"\x03", 'Event.Key(Key.Ctrl("c")'),
             (b"\r", "Event.Key(Key.Enter"),
+            (b"\x1b\r", "Event.Key(Key.Enter, Mods(alt: true"),
             (b"\x1bOS", "Event.Key(Key.F(4)"),
             (b"\x1b[<0;5;3M", "Event.Mouse(Mouse.Left, 4, 2"),  # SGR mouse, 1-based
         ]
@@ -287,6 +288,7 @@ class PtyTest(unittest.TestCase):
                 f'Event.Char("ñ", {plain})',
                 f'Event.Key(Key.Ctrl("c"), {ctrl})',
                 f"Event.Key(Key.Enter, {plain})",
+                f"Event.Key(Key.Enter, {mods.format('false').replace('alt: false', 'alt: true')})",
                 f"Event.Key(Key.F(4), {plain})",
                 f"Event.Mouse(Mouse.Left, 4, 2, {plain})",
                 "Event.Resize(100, 30)",

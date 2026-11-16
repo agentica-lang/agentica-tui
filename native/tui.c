@@ -332,9 +332,28 @@ static int extract_mouse(struct tb_event *event, size_t *consumed) {
     return TB_OK;
 }
 
+/* Alt+Enter: a terminal sends Escape and a carriage return in one write,
+ * which termbox2 reads as Escape, then Enter, when a lone Escape is a key. */
+static int extract_alt_enter(struct tb_event *event, size_t *consumed) {
+    struct bytebuf_t *in = &global.in;
+    if (in->len < 2 || in->buf[0] != '\x1b' || in->buf[1] != '\r') {
+        return TB_ERR;
+    }
+    event->type = TB_EVENT_KEY;
+    event->mod = TB_MOD_ALT;
+    event->key = TB_KEY_ENTER;
+    event->ch = 0;
+    *consumed = 2;
+    return TB_OK;
+}
+
 /* termbox2's hook before it reads an escape sequence. */
 static int extract_pre(struct tb_event *event, size_t *consumed) {
     int rv = extract_paste(event, consumed);
+    if (rv != TB_ERR) {
+        return rv;
+    }
+    rv = extract_alt_enter(event, consumed);
     if (rv != TB_ERR) {
         return rv;
     }

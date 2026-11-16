@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its selected item and scrolls to it in the room its siblings leave (`TUI.list_first` maps a row to its item);
   `TUI.table(cells)`, the aligned lines of a table. A `case` over `Node` needs the variants `Line` and `List`.
 - `TUI.Raw.program` puts the screen's input and output modes back when it ends.
+- Alt+Enter is `Key.Enter` with `alt` in `InputMode.Esc` too (was Escape, then Enter).
 - `TUI.App` has `cursor`, where the terminal cursor shows for a model (`TUI.Cursor`).
 - `TUI.Testing`: `resize`, `screen`, `wait_for`, `style_at` and `cursor` read and change the fake terminal, `rows`
   shows a wide character once, and a full call buffer is an error that says how to read it.
