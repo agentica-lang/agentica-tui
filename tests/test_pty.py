@@ -206,6 +206,22 @@ class PtyTest(unittest.TestCase):
         )
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
+    def test_a_paste_is_one_event_and_its_keys_never_arrive(self) -> None:
+        term = self.start("events.agc")
+        term.wait_for_row(0, "ready 80x24")
+        self.assertIn(b"\x1b[?2004h", term.output)
+        term.send(b"\x1b[200~hi \x03q\x1bOA\r")
+        time.sleep(0.2)
+        term.send("ñ\x1b[201~".encode())
+        term.wait_for_row(0, "Event.Paste(")
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) - 64 :]
+        self.assertIn(b"\x1b[?2004l", after)
+        lines = ESCAPE.sub("", after[after.index(LEAVE_SCREEN) :].decode()).split("\r\n")[:-1]
+        self.assertEqual(lines, ["peek none", 'Event.Paste("hi \\u0003q\\eOA\\nñ")'])
+
     def test_cells_and_text_reach_the_screen_with_their_style(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

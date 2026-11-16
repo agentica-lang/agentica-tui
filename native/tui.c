@@ -34,6 +34,16 @@ static int tui_opened;
  * needs a non-NULL pointer. */
 static int tui_screen;
 
+/* Bracketed paste: the terminal sends a paste between these, and
+ * tui_wait_event gives it as one event of kind TUI_EVENT_PASTE, with its text
+ * in tui_paste_text (under tui_lock, kept until the next paste). */
+#define TUI_EVENT_PASTE 100
+static const char tui_paste_start[] = "\x1b[200~";
+static const char tui_paste_end[] = "\x1b[201~";
+#define TUI_PASTE_MARK (sizeof(tui_paste_start) - 1)
+static char *tui_paste_text;
+static size_t tui_paste_len;
+
 /* The LC_CTYPE that tui_init replaced, put back by tui_shutdown. */
 static char tui_saved_ctype[64];
 
@@ -57,6 +67,45 @@ static void use_utf8_ctype(void) {
     setlocale(LC_CTYPE, tui_saved_ctype);
 }
 
+static void send_now(const char *sequence) {
+    bytebuf_puts(&global.out, sequence);
+    bytebuf_flush(&global.out, global.wfd);
+}
+
+/* termbox2's hook before it reads an escape sequence: a whole paste, from its
+ * start mark to its end mark, is one event, so that no key inside it is read
+ * as a key. Called under tui_lock (from tb_peek_event). */
+static int extract_paste(struct tb_event *event, size_t *consumed) {
+    struct bytebuf_t *in = &global.in;
+    size_t mark = TUI_PASTE_MARK;
+    if (in->len < mark) {
+        return memcmp(in->buf, tui_paste_start, in->len) == 0 ? TB_ERR_NEED_MORE : TB_ERR;
+    }
+    if (memcmp(in->buf, tui_paste_start, mark) != 0) {
+        return TB_ERR;
+    }
+    for (size_t at = mark; at + mark <= in->len; at++) {
+        if (memcmp(in->buf + at, tui_paste_end, mark) == 0) {
+            size_t len = at - mark;
+            char *text = realloc(tui_paste_text, len + 1);
+            if (!text) {
+                return TB_ERR_MEM;
+            }
+            memcpy(text, in->buf + mark, len);
+            text[len] = '\0';
+            tui_paste_text = text;
+            tui_paste_len = len;
+            event->type = TUI_EVENT_PASTE;
+            event->mod = 0;
+            event->key = 0;
+            event->ch = 0;
+            *consumed = at + mark;
+            return TB_OK;
+        }
+    }
+    return TB_ERR_NEED_MORE;
+}
+
 /* tb_init, giving the screen token through `screen` on success. A second
  * open fails before it touches the locale. */
 int tui_init(void **screen) {
@@ -66,6 +115,8 @@ int tui_init(void **screen) {
         use_utf8_ctype();
         rv = tb_init();
         if (rv == TB_OK) {
+            tb_set_func(TB_FUNC_EXTRACT_PRE, extract_paste);
+            send_now("\x1b[?2004h");
             tui_opened = 1;
             *screen = &tui_screen;
         } else {
@@ -85,7 +136,11 @@ void tui_shutdown(void *screen) {
     pthread_mutex_lock(&tui_lock);
     if (tui_opened) {
         tui_opened = 0;
+        send_now("\x1b[?2004l");
         tb_shutdown();
+        free(tui_paste_text);
+        tui_paste_text = NULL;
+        tui_paste_len = 0;
         setlocale(LC_CTYPE, tui_saved_ctype);
     }
     pthread_mutex_unlock(&tui_lock);
@@ -181,6 +236,16 @@ static int peek_now(struct tb_event *event, int *err) {
     *err = tb_last_errno();
     pthread_mutex_unlock(&tui_lock);
     return rv;
+}
+
+/* The text of the last paste event and its length in bytes. */
+const char *tui_paste(void *screen, int64_t *length) {
+    (void)screen;
+    pthread_mutex_lock(&tui_lock);
+    const char *text = tui_paste_text ? tui_paste_text : "";
+    *length = (int64_t)tui_paste_len;
+    pthread_mutex_unlock(&tui_lock);
+    return text;
 }
 
 /* Without the lock, waits up to `timeout_ms` for the tty or the resize pipe

@@ -110,5 +110,6 @@ def describe(event: TUI.Event) -> String
     TUI.Event.Char(char, _) -> "char #{char}"
     TUI.Event.Mouse(button, x, y, _) -> "mouse #{button} #{x},#{y}"
     TUI.Event.Resize(width, height) -> "resize #{width}x#{height}"
+    TUI.Event.Paste(text) -> "paste of #{text.length} characters"
   end
 end

@@ -35,6 +35,7 @@ extern "termbox2"
   def tui_set_input_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_set_output_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_strerror(code: C.Int32) -> C.String
+  def tui_paste(screen: Screen, out length: C.Int64) -> C.Pointer
 end
 
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
@@ -173,7 +174,7 @@ def wait_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
 
       code = tui_wait_event(screen, buffer, slice(deadline, timeout_ms))
       if code == TB_OK
-        found = Ev.decode(read_event(buffer))
+        found = Ev.decode(with_paste(screen, read_event(buffer)))
         return ok(found) if found.some?
       elsif code == TB_ERR_NOT_INIT
         return error("tui: the screen is closed")
@@ -210,6 +211,13 @@ def read_event(buffer: C.Pointer) -> Ev.Raw
     x: Native.get_int32(buffer, 16),
     y: Native.get_int32(buffer, 20),
   )
+end
+
+def with_paste(screen: Screen, raw: Ev.Raw) -> Ev.Raw
+  return raw if raw.kind != Ev.KIND_PASTE
+
+  pasted = tui_paste(screen)
+  raw.with(text: Native.get_string(pasted.result, 0, pasted.length))
 end
 
 def check(what: String, code: Int) -> Result[Void]

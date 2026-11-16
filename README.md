@@ -68,7 +68,9 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
   `OutputMode.Normal`, `Colors256` or `Truecolor`.
 - `set_cursor(screen, x, y)`, `hide_cursor(screen)`.
 - A call with a screen after it is closed stops the task with `RUNTIME-NATIVE-CLOSED`.
-- `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`.
+- `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`,
+  `Paste(text)`. The screen turns on bracketed paste (`ESC [ ? 2004 h`, off at the close), so pasted text comes as one
+  `Paste` with `\n` line ends, and the keys in it never come as `Key` or `Char` events.
 - `Key`: `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`,
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
 - `Style(fg:, bg:, bold:, dim:, italic:, underline:, reverse:, attrs:)`, every field optional, with `Color`

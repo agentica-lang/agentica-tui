@@ -1,4 +1,7 @@
-## Input events: keys, characters, mouse and resize, decoded from the fields of a termbox2 `struct tb_event`.
+## Input events: keys, characters, mouse, resize and paste, decoded from the fields of a termbox2 `struct tb_event`.
+
+## The event kind of a paste (native/tui.c `TUI_EVENT_PASTE`).
+KIND_PASTE = 100
 
 ## The fields of a termbox2 `struct tb_event`, as numbers.
 struct Raw
@@ -10,6 +13,8 @@ struct Raw
   height: Int = 0
   x: Int = 0
   y: Int = 0
+  ## The text of a paste.
+  text: String = ""
 end
 
 ## The modifier keys held with a key or a mouse event. `motion` is a mouse move with a button down.
@@ -64,6 +69,8 @@ enum Event
   Mouse(Mouse, Int, Int, Mods)
   ## The new width and height of the terminal.
   Resize(Int, Int)
+  ## Pasted text, whole: the keys in it never come as `Key` or `Char` events. Line ends are `\n`.
+  Paste(String)
 end
 
 ## How a lone Escape byte is read: as `Key.Escape` (`Esc`, the default) or as Alt held with the next key (`Alt`).
@@ -81,6 +88,8 @@ def decode(raw: Raw) -> Optional[Event]
     return some(Event.Resize(raw.width, raw.height))
   elsif raw.kind == KIND_MOUSE
     return some(mouse_event(raw))
+  elsif raw.kind == KIND_PASTE
+    return some(Event.Paste(raw.text.replace("\r\n", "\n").replace("\r", "\n")))
   end
 
   none

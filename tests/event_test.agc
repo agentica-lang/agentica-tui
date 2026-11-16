@@ -20,6 +20,10 @@ def main() -> Void
       try Test.eq(Ev.key(0x7f), Ev.Key.Backspace)
       Test.eq(Ev.key(0x08), Ev.Key.Backspace)
     end,
+    Test.test("a paste is one event with its line ends as \\n") do
+      raw = Ev.Raw(kind: Ev.KIND_PASTE, mod: 0, key: 0, ch: 0, text: "a\r\nb\rc\nd")
+      Test.eq(Ev.decode(raw), some(Ev.Event.Paste("a\nb\nc\nd")))
+    end,
     Test.test("control keys in caret notation") do
       try Test.eq(Ev.key(0x03), Ev.Key.Ctrl("c"))
       try Test.eq(Ev.key(0x00), Ev.Key.Ctrl("@"))
