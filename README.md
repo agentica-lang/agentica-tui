@@ -52,6 +52,7 @@ end
 - [Low level](docs/low-level.md): cells, `present`, waiting for events, tasks.
 - [Native library](docs/native.md): termbox2, the `.so` and how CI builds it.
 - [Tests](docs/tests.md): the test suites and how to test a view.
+- [llms.txt](docs/llms.txt): these pages as links, for language models.
 
 ## License
 
