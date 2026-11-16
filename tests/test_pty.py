@@ -222,7 +222,7 @@ class PtyTest(unittest.TestCase):
         lines = ESCAPE.sub("", after[after.index(LEAVE_SCREEN) :].decode()).split("\r\n")[:-1]
         self.assertEqual(lines, ["peek none", 'Event.Paste("hi \\u0003q\\eOA\\nñ")'])
 
-    def test_a_paste_with_no_end_mark_ends_after_a_second(self) -> None:
+    def test_a_paste_with_no_end_mark_ends_after_two_quiet_seconds(self) -> None:
         term = self.start("paste.agc")
         term.wait_for_row(0, "ready")
         term.send(b"\x1b[200~abc")
@@ -230,6 +230,25 @@ class PtyTest(unittest.TestCase):
         term.send(b"q")
 
         self.assertEqual(term.finish(), 0)
+
+    def test_a_paste_over_the_cap_keeps_its_first_mib_and_no_key_arrives(self) -> None:
+        term = self.start("paste.agc")
+        term.wait_for_row(0, "ready")
+        term.send(b"\x1b[200~")
+        for chunk in [b"x" * 65536] * 16 + [b"a\r\x03" * 20000]:
+            term.send(chunk)
+            term._read(0)
+        term.send(b"\x1b[201~")
+        term.wait_for_row(0, f'paste {1024 * 1024} "xxxxxxxx"')
+        term.send(b"\x1b[201~z")
+        term.wait_for_row(0, 'Event.Char("z"')
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
+        plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
+        self.assertEqual(lines, [f'paste {1024 * 1024} "xxxxxxxx"', f'Event.Char("z", {plain})'])
 
     def test_a_large_paste_is_read_in_linear_time(self) -> None:
         term = self.start("paste.agc")

@@ -36,12 +36,15 @@ static int tui_screen;
 
 /* Bracketed paste: the terminal sends a paste between these, and
  * tui_wait_event gives it as one event of kind TUI_EVENT_PASTE, with its text
- * in tui_paste_text (under tui_lock, kept until the next paste). A paste with
- * no end mark ends at TUI_PASTE_MAX bytes or after TUI_PASTE_IDLE_MS with no
- * new byte, with what came so far. */
+ * in tui_paste_text (under tui_lock, kept until the next paste). A paste
+ * keeps its first TUI_PASTE_MAX bytes and drops the rest up to its end mark.
+ * One with no end mark ends after TUI_PASTE_IDLE_MS with no new byte and
+ * nothing waiting to be read. A lone end mark is dropped (an event of kind
+ * TUI_EVENT_NONE, which the Agentica side skips). */
 #define TUI_EVENT_PASTE 100
+#define TUI_EVENT_NONE 101
 #define TUI_PASTE_MAX (1024 * 1024)
-#define TUI_PASTE_IDLE_MS 1000
+#define TUI_PASTE_IDLE_MS 2000
 static const char tui_paste_start[] = "\x1b[200~";
 static const char tui_paste_end[] = "\x1b[201~";
 #define TUI_PASTE_MARK (sizeof(tui_paste_start) - 1)
@@ -51,6 +54,10 @@ static size_t tui_paste_len;
  * when that length last grew. */
 static size_t tui_paste_scanned;
 static long long tui_paste_grew_ms;
+/* The paste passed TUI_PASTE_MAX: its first bytes are in tui_paste_text, and
+ * the input keeps only the start mark and the bytes that may begin the end
+ * mark. */
+static int tui_paste_draining;
 
 static long long now_ms(void);
 
@@ -85,18 +92,10 @@ static void send_now(const char *sequence) {
 /* termbox2's hook before it reads an escape sequence: a whole paste, from its
  * start mark to its end mark, is one event, so that no key inside it is read
  * as a key. Called under tui_lock (from tb_peek_event). */
-static int take_paste(struct tb_event *event, size_t *consumed, size_t len, size_t used) {
-    struct bytebuf_t *in = &global.in;
-    char *text = realloc(tui_paste_text, len + 1);
-    if (!text) {
-        return TB_ERR_MEM;
-    }
-    memcpy(text, in->buf + TUI_PASTE_MARK, len);
-    text[len] = '\0';
-    tui_paste_text = text;
-    tui_paste_len = len;
+static int paste_event(struct tb_event *event, size_t *consumed, int type, size_t used) {
     tui_paste_scanned = 0;
-    event->type = TUI_EVENT_PASTE;
+    tui_paste_draining = 0;
+    event->type = type;
     event->mod = 0;
     event->key = 0;
     event->ch = 0;
@@ -104,11 +103,48 @@ static int take_paste(struct tb_event *event, size_t *consumed, size_t len, size
     return TB_OK;
 }
 
+/* Keeps `len` bytes after the start mark as the paste text. */
+static int keep_paste(size_t len) {
+    char *text = realloc(tui_paste_text, len + 1);
+    if (!text) {
+        tui_paste_scanned = 0;
+        tui_paste_draining = 0;
+        return TB_ERR_MEM;
+    }
+    memcpy(text, global.in.buf + TUI_PASTE_MARK, len);
+    text[len] = '\0';
+    tui_paste_text = text;
+    tui_paste_len = len;
+    return TB_OK;
+}
+
+static int take_paste(struct tb_event *event, size_t *consumed, size_t len, size_t used) {
+    if (!tui_paste_draining) {
+        int rv = keep_paste(len);
+        if (rv != TB_OK) {
+            return rv;
+        }
+    }
+    return paste_event(event, consumed, TUI_EVENT_PASTE, used);
+}
+
+static int nothing_waiting(void) {
+    int pending = 0;
+    return ioctl(global.rfd, FIONREAD, &pending) == 0 && pending == 0;
+}
+
+static int prefix_of(const char *mark, const struct bytebuf_t *in) {
+    return memcmp(in->buf, mark, in->len) == 0;
+}
+
 static int extract_paste(struct tb_event *event, size_t *consumed) {
     struct bytebuf_t *in = &global.in;
     size_t mark = TUI_PASTE_MARK;
     if (in->len < mark) {
-        return memcmp(in->buf, tui_paste_start, in->len) == 0 ? TB_ERR_NEED_MORE : TB_ERR;
+        return prefix_of(tui_paste_start, in) || prefix_of(tui_paste_end, in) ? TB_ERR_NEED_MORE : TB_ERR;
+    }
+    if (memcmp(in->buf, tui_paste_end, mark) == 0) {
+        return paste_event(event, consumed, TUI_EVENT_NONE, mark);
     }
     if (memcmp(in->buf, tui_paste_start, mark) != 0) {
         return TB_ERR;
@@ -121,15 +157,28 @@ static int extract_paste(struct tb_event *event, size_t *consumed) {
     }
     for (size_t at = from; at + mark <= in->len; at++) {
         if (memcmp(in->buf + at, tui_paste_end, mark) == 0) {
-            return take_paste(event, consumed, at - mark, at + mark);
+            size_t len = at - mark < TUI_PASTE_MAX ? at - mark : TUI_PASTE_MAX;
+            return take_paste(event, consumed, len, at + mark);
         }
     }
     long long now = now_ms();
-    if (in->len != tui_paste_scanned) {
-        tui_paste_scanned = in->len;
+    if (in->len != tui_paste_scanned || !nothing_waiting()) {
         tui_paste_grew_ms = now;
     }
-    if (in->len - mark >= TUI_PASTE_MAX || now - tui_paste_grew_ms >= TUI_PASTE_IDLE_MS) {
+    if (!tui_paste_draining && in->len - mark >= TUI_PASTE_MAX) {
+        int rv = keep_paste(TUI_PASTE_MAX);
+        if (rv != TB_OK) {
+            return rv;
+        }
+        tui_paste_draining = 1;
+    }
+    if (tui_paste_draining) {
+        size_t keep = in->len - mark < mark - 1 ? in->len - mark : mark - 1;
+        memmove(in->buf + mark, in->buf + in->len - keep, keep);
+        in->len = mark + keep;
+    }
+    tui_paste_scanned = in->len;
+    if (now - tui_paste_grew_ms >= TUI_PASTE_IDLE_MS) {
         return take_paste(event, consumed, in->len - mark, in->len);
     }
     return TB_ERR_NEED_MORE;
