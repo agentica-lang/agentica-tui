@@ -23,20 +23,30 @@ struct Size
   height: Int
 end
 
+# What the terminal shows (`front`, as the last present left it) and what the calls after that drew (`back`).
+struct Term
+  back: Gr.Grid
+  back_cursor: Optional[Bd.Cursor] = none
+  front: Gr.Grid
+  front_cursor: Optional[Bd.Cursor] = none
+  front_text: List[String]
+end
+
 struct Fake
   ## The events the program reads; closed and empty, the terminal is gone.
   events: Channel[Ev.Event]
   calls: Channel[Call]
-  # The size now, and the calls since the last clear: each a channel of one value, taken and put back.
+  # The size now, and the terminal with the calls read so far: each a channel of one value, taken and put back.
   size: Channel[Size]
-  shown: Channel[List[Call]]
+  term: Channel[Term]
 end
 
 ## A fake terminal of `width` by `height`.
 def new(width: Int, height: Int) -> Fake
-  fake = Fake(events: Channel.new(EVENTS), calls: Channel.new(CALLS), size: Channel.new(1), shown: Channel.new(1))
+  fake = Fake(events: Channel.new(EVENTS), calls: Channel.new(CALLS), size: Channel.new(1), term: Channel.new(1))
   _ = fake.size.send(Size(width: width, height: height), 0)
-  _ = fake.shown.send([], 0)
+  blank = Gr.blank(width, height)
+  _ = fake.term.send(Term(back: blank, front: blank, front_text: text(blank)), 0)
   fake
 end
 
@@ -65,16 +75,17 @@ end
 ## `wait_for`, `cursor` and `style_at` read them too.
 def calls(fake: Fake, wait_ms: Int = 0) -> List[Call] = taken(fake, wait_ms)
 
-## The text of each row after `calls`, from the last clear: what the terminal shows. A wide character's covered cell
-## adds nothing.
+## The text of each row that `calls` draw, from the last clear in them, presented or not. A wide character's covered
+## cell adds nothing.
 def rows(fake: Fake, calls: List[Call]) -> List[String]
-  grid(size(fake), calls).rows.map { |row| trimmed(row.map { |glyph| glyph.char }.join("")) }
+  now = size(fake)
+  text(calls.reduce(Gr.blank(now.width, now.height)) do |grid, call| drawn(now, grid, call) end)
 end
 
-## What the terminal shows now: `rows` of every call since the last clear (it reads the new calls).
+## The text of each row the terminal shows now, as the last present left it (it reads the new calls).
 def screen(fake: Fake) -> List[String]
   _ = calls(fake)
-  rows(fake, shown(fake))
+  shown(fake).front_text
 end
 
 ## Waits up to `wait_ms` for the terminal to show rows that `done` takes, and gives them; an error with the rows it
@@ -89,7 +100,7 @@ def wait_for(fake: Fake, done: Fn[List[String], Bool], wait_ms: Int = 5000) -> R
     end
 
     _ = taken(fake, left)
-    shows = rows(fake, shown(fake))
+    shows = shown(fake).front_text
   end
 
   ok(shows)
@@ -98,22 +109,13 @@ end
 ## Where the cursor shows on the terminal now; none when it is hidden.
 def cursor(fake: Fake) -> Optional[Bd.Cursor]
   _ = calls(fake)
-  at: Optional[Bd.Cursor] = none
-  for call in shown(fake)
-    case call
-      Call.Cursor(x, y) -> at = some(Bd.Cursor(x: x, y: y))
-      Call.CursorHidden -> at = none
-      _ -> next
-    end
-  end
-
-  at
+  shown(fake).front_cursor
 end
 
 ## The style of the cell at column x, row y on the terminal now; none outside it.
 def style_at(fake: Fake, x: Int, y: Int) -> Optional[St.Style]
   _ = calls(fake)
-  found = grid(size(fake), shown(fake))
+  found = shown(fake).front
   return none if y < 0 or y >= found.height or x < 0 or x >= found.width
 
   some(found.rows[y][x].style)
@@ -134,7 +136,12 @@ def taken(fake: Fake, wait_ms: Int) -> List[Call]
     got = fake.calls.recv(0)
   end
 
-  _ = fake.shown.send(since_clear(shown_taken(fake) + out), WAIT_MS)
+  if not out.empty?
+    now = size(fake)
+    term = fake.term.recv(WAIT_MS).unwrap!
+    _ = fake.term.send(out.reduce(term) do |t, call| after(now, t, call) end, WAIT_MS)
+  end
+
   out
 end
 
@@ -144,30 +151,10 @@ def size(fake: Fake) -> Size
   now
 end
 
-def shown(fake: Fake) -> List[Call]
-  now = shown_taken(fake)
-  _ = fake.shown.send(now, WAIT_MS)
+def shown(fake: Fake) -> Term
+  now = fake.term.recv(WAIT_MS).unwrap!
+  _ = fake.term.send(now, WAIT_MS)
   now
-end
-
-def shown_taken(fake: Fake) -> List[Call]
-  none_yet: List[Call] = []
-  fake.shown.recv(WAIT_MS).unwrap_or(none_yet)
-end
-
-# The calls from the last clear on: the screen they draw is the same.
-def since_clear(calls: List[Call]) -> List[Call]
-  start = 0
-  i = 0
-  for call in calls
-    if call == Call.Cleared
-      start = i
-    end
-
-    i += 1
-  end
-
-  calls.drop(start)
 end
 
 def kept(fake: Fake, call: Call) -> Result[Void]
@@ -189,28 +176,44 @@ def set_modes(fake: Fake, modes: Bd.Modes) -> Result[Fn[Result[Void]]]
   ok(-> { kept(fake, Call.Restored) })
 end
 
-def grid(now: Size, calls: List[Call]) -> Gr.Grid
-  out = Gr.blank(now.width, now.height)
-  for call in calls
-    out = after(now, out, call)
+# The terminal after one call: a present shows what was drawn; a clear, or a draw after a size change, starts from a
+# blank screen.
+def after(now: Size, term: Term, call: Call) -> Term
+  case call
+    Call.Presented -> term.with(front: term.back, front_cursor: term.back_cursor, front_text: presented_text(term))
+    Call.Cursor(x, y) -> term.with(back_cursor: some(Bd.Cursor(x: x, y: y)))
+    Call.CursorHidden -> term.with(back_cursor: none)
+    _ -> term.with(back: drawn(now, term.back, call))
   end
-
-  out
 end
 
-def after(now: Size, grid: Gr.Grid, call: Call) -> Gr.Grid
+def drawn(now: Size, grid: Gr.Grid, call: Call) -> Gr.Grid
   case call
     Call.Cleared -> Gr.blank(now.width, now.height)
+    Call.Drawn(cells) if grid.width != now.width or grid.height != now.height ->
+      Gr.apply(Gr.blank(now.width, now.height), cells)
     Call.Drawn(cells) -> Gr.apply(grid, cells)
     _ -> grid
   end
 end
 
-def trimmed(row: String) -> String
-  text = row
-  while text.end_with?(" ")
-    text = text.slice(0, text.length - 1)
-  end
+def text(grid: Gr.Grid) -> List[String] = grid.rows.map { |row| row_text(row) }
 
-  text
+# Only the rows that changed since the last present are read again.
+def presented_text(term: Term) -> List[String]
+  return text(term.back) if term.back.height != term.front.height or term.back.width != term.front.width
+
+  (0...term.back.height).to_a.map { |y| changed_text(term, y) }
+end
+
+def changed_text(term: Term, y: Int) -> String
+  return term.front_text[y] if term.back.rows[y] == term.front.rows[y]
+
+  row_text(term.back.rows[y])
+end
+
+# The characters of a row without the spaces at its end; the mark keeps the spaces at its start.
+def row_text(row: List[Gr.Glyph]) -> String
+  marked = ("|" + row.map { |glyph| glyph.char }.join("")).strip
+  marked.slice(1, marked.length - 1)
 end

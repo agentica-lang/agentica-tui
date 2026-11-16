@@ -45,5 +45,7 @@ end
 - `screen(fake)`: the text of each row now; `wait_for(fake, done, wait_ms)` waits until `done` takes the rows.
 - `style_at(fake, x, y)` and `cursor(fake)`: the style of a cell and where the cursor shows (none when hidden).
 - `resize(fake, width, height)`: the new size and its `Resize` event.
+- `screen`, `style_at` and `cursor` show the terminal as the last present left it.
 - `calls(fake, wait_ms)`: the calls since the last read, in order, and `rows(fake, calls)` the rows they draw. The
   fake keeps 65536 calls that nobody read; past that, a call is an error.
+- A call is read once: use either the screen helpers or `calls` in a test, not both.

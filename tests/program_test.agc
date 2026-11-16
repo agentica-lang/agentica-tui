@@ -7,6 +7,7 @@ import View from "../src/view"
 import Width from "../src/width"
 
 WAIT_MS = 5000
+FRAMES = 300
 
 enum Msg
   Key(Ev.Event)
@@ -59,6 +60,28 @@ def main() -> Void
       try Test.eq(Fk.cursor(fake), some(Bd.Cursor(x: 5, y: 0)))
       try sent(fake, [Ev.Event.Paste("done")])
       Test.eq(Task.await(runner), ok("中文xx"))
+    end,
+    Test.test("the screen is read after each of 300 frames on 80 by 24 within the step budget") do
+      fake = Fk.new(80, 24)
+      runner = Task.spawn do Pg.program(Fk.backend(fake), counter([])) end
+      for count in 1..FRAMES
+        try sent(fake, [char("a")])
+        try Fk.wait_for(fake, ->(rows: List[String]) { rows[0] == "#{count} keys" })
+      end
+
+      try sent(fake, [char("q")])
+      Test.eq(Task.await(runner), ok(FRAMES))
+    end,
+    Test.test("the screen and the cursor show what was drawn once it is presented") do
+      fake = Fk.new(4, 1)
+      backend = Fk.backend(fake)
+      try backend.draw.call([View.Cell(x: 0, y: 0, char: "a", style: St.Style())])
+      try backend.set_cursor.call(1, 0)
+      try Test.eq(Fk.screen(fake), [""])
+      try Test.eq(Fk.cursor(fake), none)
+      try backend.present.call()
+      try Test.eq(Fk.screen(fake), ["a"])
+      Test.eq(Fk.cursor(fake), some(Bd.Cursor(x: 1, y: 0)))
     end,
     Test.test("a full call buffer gives an error that says how to read it") do
       fake = Fk.new(1, 1)

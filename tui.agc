@@ -90,13 +90,15 @@ module Testing
   ## `wait_for`, `cursor` and `style_at` read them too.
   def calls(fake: Fake, wait_ms: Int = 0) -> List[Call] = Fk.calls(fake, wait_ms)
 
-  ## The text of each row after `calls`, from the last clear; a wide character's covered cell adds nothing.
+  ## The text of each row that `calls` draw, from the last clear in them, presented or not; a wide character's covered
+  ## cell adds nothing.
   def rows(fake: Fake, calls: List[Call]) -> List[String] = Fk.rows(fake, calls)
 
   ## The terminal takes a new size and sends its `Resize` event.
   def resize(fake: Fake, width: Int, height: Int) -> Result[Void] = Fk.resize(fake, width, height)
 
-  ## The text of each row the terminal shows now (it reads the new calls, as `calls` does).
+  ## The text of each row the terminal shows now, as the last present left it (it reads the new calls, as `calls`
+  ## does).
   def screen(fake: Fake) -> List[String] = Fk.screen(fake)
 
   ## Waits up to `wait_ms` for the terminal to show rows that `done` takes, and gives them; an error with the rows it
