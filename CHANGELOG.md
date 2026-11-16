@@ -12,6 +12,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its selected item and scrolls to it in the room its siblings leave (`TUI.list_first` maps a row to its item);
   `TUI.table(cells)`, the aligned lines of a table. A `case` over `Node` needs the variants `Line` and `List`.
 - `TUI.Raw.program` puts the screen's input and output modes back when it ends.
+- `TUI.App` has `cursor`, where the terminal cursor shows for a model (`TUI.Cursor`).
+- `TUI.Testing`: `resize`, `screen`, `wait_for`, `style_at` and `cursor` read and change the fake terminal, `rows`
+  shows a wide character once, and a full call buffer is an error that says how to read it.
 - `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
   frame no longer clears the screen. `TUI.diff` compares two grids.
 - `TUI.run(app)` opens the terminal and runs the Elm loop; ticks (`Sub.Tick`) and commands in tasks (`Cmd.Run`).
@@ -62,4 +65,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
-- `TUI.Raw.present` (and so `render` and `program`) tries a write the terminal cut short once more before it fails.
+- `TUI.Raw.present` (and so `render` and `program`) goes on with a write the terminal cut short, from where it
+  stopped, and after an interrupt; nothing is sent twice.
+- `TUI.run` and `TUI.Raw.program` put the input mode back when setting the output mode fails.

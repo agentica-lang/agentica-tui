@@ -124,14 +124,9 @@ def backend(screen: Screen) -> Bd.Backend
   )
 end
 
-## Shows the back buffer on the terminal: nothing drawn appears before this. A write the terminal cut short is tried
-## once more.
-def present(screen: Screen) -> Result[Void]
-  # A short write (an EINTR during a large redraw) keeps termbox2's buffer, so a second try writes all of it again.
-  return ok() if tui_present(screen) >= TB_OK
-
-  check("present", tui_present(screen))
-end
+## Shows the back buffer on the terminal: nothing drawn appears before this. A write the terminal cuts short goes on
+## from where it stopped (native/tui.c `tui_write_all`).
+def present(screen: Screen) -> Result[Void] = check("present", tui_present(screen))
 
 ## Shows the cursor at column x, row y.
 def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = check("set_cursor", tui_set_cursor(screen, x, y))
@@ -272,8 +267,12 @@ end
 def set_modes(screen: Screen, modes: Bd.Modes) -> Result[Fn[Result[Void]]]
   before = try current_modes(screen)
   try set_input_mode(screen, modes.input, mouse: modes.mouse)
-  try set_output_mode(screen, modes.output)
-  ok(-> { restore_modes(screen, before) })
+  case set_output_mode(screen, modes.output)
+    ok(_) -> ok(-> { restore_modes(screen, before) })
+    error(e) ->
+      _ = restore_modes(screen, before)
+      error(e)
+  end
 end
 
 def with_paste(screen: Screen, raw: Codes.Raw) -> Codes.Raw

@@ -9,9 +9,36 @@
  * VM then refuses a call after the screen is closed (RUNTIME-NATIVE-CLOSED)
  * and never frees the screen during a call. */
 
+#include <errno.h>
+#include <unistd.h>
+
+/* termbox2 sends its output with one write(2) and gives up on a short one
+ * (an EINTR from SIGWINCH during a large redraw on a slow terminal), keeping
+ * the whole buffer: a second try would send its first bytes twice, in the
+ * colors termbox2 thinks the terminal already has. So its writes go through
+ * tui_write_all, which writes the rest after a partial write and tries again
+ * after an EINTR; it is async-signal-safe, as termbox2's signal handler
+ * writes too. */
+static ssize_t tui_write_all(int fd, const void *buf, size_t len) {
+    const char *at = buf;
+    size_t left = len;
+    while (left > 0) {
+        ssize_t wrote = write(fd, at, left);
+        if (wrote < 0) {
+            if (errno == EINTR) continue;
+            return -1;
+        }
+        at += wrote;
+        left -= (size_t)wrote;
+    }
+    return (ssize_t)len;
+}
+
+#define write tui_write_all
 #define TB_IMPL
 #define TB_LIB_OPTS
 #include "termbox2/termbox2.h"
+#undef write
 
 #include <langinfo.h>
 #include <locale.h>

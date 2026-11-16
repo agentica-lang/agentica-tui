@@ -3,7 +3,7 @@
 The package calls termbox2 through the Agentica FFI. `native/termbox2/termbox2.h` is the termbox2 v2.5.0 release
 file, unchanged: `native/termbox2/VERSION` has its tag, commit and sha256, and `make verify-vendor` checks it.
 `native/tui.c` includes it and adds the `tui_*` functions that `src/termbox.agc` calls: the lock, the waits, the
-bracketed paste and the mouse reports. A fix to termbox2's behavior goes in `native/tui.c`.
+bracketed paste and the mouse reports; its writes go on after a short write or an interrupt. A fix to termbox2's behavior goes in `native/tui.c`.
 
 ## The `.so`
 
