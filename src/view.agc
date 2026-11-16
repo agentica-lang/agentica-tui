@@ -7,6 +7,20 @@
 import St from "style"
 import Width from "width"
 
+## The border of a box.
+enum Border
+  None
+  Line
+end
+
+## How a box draws around its child: `padding` cells (0 or more), a border, and the `style` that fills the box and is
+## the base of the styles inside it (`merge`).
+struct Frame
+  padding: Int = 0
+  border: Border = Border.None
+  style: St.Style
+end
+
 ## A part of the screen.
 enum Node
   ## Text, with its lines (`\n`) wrapped to the width it gets.
@@ -15,9 +29,8 @@ enum Node
   Row(List[Node])
   ## Children one under another.
   Col(List[Node])
-  ## A child with `padding` cells around it and a line border when `border` is true; the box is filled with
-  ## `style`, which is also the base of the styles inside it (`merge`).
-  Box(Node, Int, Bool, St.Style)
+  ## A child in a frame.
+  Box(Node, Frame)
   ## Free room in a `Row` or a `Col`.
   Spacer
 end
@@ -29,6 +42,18 @@ struct Cell
   char: String
   style: St.Style
 end
+
+def text(text: String, style: St.Style = St.Style()) -> Node = Node.Text(text, style)
+
+def row(children: List[Node]) -> Node = Node.Row(children)
+
+def col(children: List[Node]) -> Node = Node.Col(children)
+
+def box(child: Node, padding: Int = 0, border: Border = Border.None, style: St.Style = St.Style()) -> Node
+  Node.Box(child, Frame(padding: padding, border: border, style: style))
+end
+
+def spacer() -> Node = Node.Spacer
 
 ## The cells of `node` on a screen of `width` by `height`, in drawing order.
 def layout(node: Node, width: Int, height: Int) -> List[Cell]
@@ -63,12 +88,12 @@ def draw(node: Node, area: Area, base: St.Style) -> List[Cell]
     Node.Text(text, style) -> text_cells(text, area, St.merge(base, style))
     Node.Row(children) -> row_cells(children, area, base)
     Node.Col(children) -> col_cells(children, area, base)
-    Node.Box(child, padding, border, style) -> box_cells(child, padding, border, area, St.merge(base, style))
+    Node.Box(child, frame) -> box_cells(child, frame, area, St.merge(base, frame.style))
     Node.Spacer -> []
   end
 end
 
-# The size `node` takes when it may use at most `width` columns.
+# The size `node` takes when it may use at most `width` columns. Each node below is measured once.
 def measure(node: Node, width: Int) -> Size
   return Size(width: 0, height: 0) if width <= 0
 
@@ -77,36 +102,36 @@ def measure(node: Node, width: Int) -> Size
       lines = wrap(text, width)
       Size(width: lines.map { |line| Width.text(line) }.max.unwrap_or(0), height: lines.size)
     Node.Row(children) ->
-      sizes = row_widths(children, width)
-      heights = (0...children.size).map { |i| measure(children[i], sizes[i]).height }
-      Size(width: sizes.sum, height: heights.max.unwrap_or(0))
+      sizes = row_sizes(children, width)
+      Size(width: sizes.map { |s| s.width }.sum, height: sizes.map { |s| s.height }.max.unwrap_or(0))
     Node.Col(children) ->
       sizes = children.map { |child| measure(child, width) }
       Size(width: sizes.map { |s| s.width }.max.unwrap_or(0), height: sizes.map { |s| s.height }.sum)
-    Node.Box(child, padding, border, _) ->
-      inset = padding + frame(border)
-      inner = measure(child, width - 2 * inset)
-      Size(width: [inner.width + 2 * inset, width].min.unwrap!, height: inner.height + 2 * inset)
+    Node.Box(child, frame) ->
+      edge = inset(frame)
+      inner = measure(child, width - 2 * edge)
+      Size(width: [inner.width + 2 * edge, width].min.unwrap!, height: inner.height + 2 * edge)
     Node.Spacer -> Size(width: 0, height: 0)
   end
 end
 
-# The width of each child of a row in `width` columns: each in order takes what it needs of what is left, and the
-# spacers share the rest.
-def row_widths(children: List[Node], width: Int) -> List[Int]
+# The size of each child of a row in `width` columns: each in order takes the width it needs of what is left, and
+# the spacers share the rest.
+def row_sizes(children: List[Node], width: Int) -> List[Size]
   left = width
-  fixed: List[Int] = []
+  sizes: List[Size] = []
   for child in children
-    used = 0
+    size = Size(width: 0, height: 0)
     if child != Node.Spacer
-      used = measure(child, left).width
+      size = measure(child, left)
     end
 
-    fixed = fixed.push(used)
-    left = left - used
+    sizes = sizes.push(size)
+    left = left - size.width
   end
 
-  shared(children, fixed, left)
+  widths = shared(children, sizes.map { |s| s.width }, left)
+  (0...sizes.size).map { |i| sizes[i].with(width: widths[i]) }
 end
 
 def col_heights(children: List[Node], width: Int, height: Int) -> List[Int]
@@ -150,13 +175,13 @@ def shared(children: List[Node], fixed: List[Int], room: Int) -> List[Int]
 end
 
 def row_cells(children: List[Node], area: Area, base: St.Style) -> List[Cell]
-  widths = row_widths(children, area.width)
+  sizes = row_sizes(children, area.width)
   cells: List[Cell] = []
   x = area.x
   for i in 0...children.size
-    part = Area(x: x, y: area.y, width: [widths[i], area.x + area.width - x].min.unwrap!, height: area.height)
+    part = Area(x: x, y: area.y, width: [sizes[i].width, area.x + area.width - x].min.unwrap!, height: area.height)
     cells = cells + draw(children[i], part, base)
-    x = x + widths[i]
+    x = x + sizes[i].width
   end
 
   cells
@@ -175,28 +200,31 @@ def col_cells(children: List[Node], area: Area, base: St.Style) -> List[Cell]
   cells
 end
 
-def box_cells(child: Node, padding: Int, border: Bool, area: Area, style: St.Style) -> List[Cell]
+def box_cells(child: Node, frame: Frame, area: Area, style: St.Style) -> List[Cell]
+  lined = frame.border == Border.Line
   cells: List[Cell] = []
   for y in area.y...(area.y + area.height)
     for x in area.x...(area.x + area.width)
-      cells = cells.push(Cell(x: x, y: y, char: frame_char(border, x, y, area), style: style))
+      cells = cells.push(Cell(x: x, y: y, char: frame_char(lined, x, y, area), style: style))
     end
   end
 
-  inset = padding + frame(border)
-  inner = Area(x: area.x + inset, y: area.y + inset, width: area.width - 2 * inset, height: area.height - 2 * inset)
+  edge = inset(frame)
+  inner = Area(x: area.x + edge, y: area.y + edge, width: area.width - 2 * edge, height: area.height - 2 * edge)
 
   cells + draw(child, inner, style)
 end
 
-def frame(border: Bool) -> Int
-  return 1 if border
+# The cells between the edge of a box and its child; a negative padding counts as 0.
+def inset(frame: Frame) -> Int
+  padding = [frame.padding, 0].max.unwrap!
+  return padding + 1 if frame.border == Border.Line
 
-  0
+  padding
 end
 
-def frame_char(border: Bool, x: Int, y: Int, area: Area) -> String
-  return " " if not border
+def frame_char(lined: Bool, x: Int, y: Int, area: Area) -> String
+  return " " if not lined
 
   left = x == area.x
   right = x == area.x + area.width - 1

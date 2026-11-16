@@ -33,6 +33,7 @@ export Tb.write
 export Tb.present
 export Tb.render
 export Tb.program
+export Tb.Step
 export Tb.set_cursor
 export Tb.hide_cursor
 export Tb.poll_event
@@ -50,6 +51,13 @@ export St.Style
 export St.merge
 export St.OutputMode
 export View.Node
+export View.Border
+export View.Frame
+export View.text
+export View.row
+export View.col
+export View.box
+export View.spacer
 export View.Cell
 export View.layout
 export View.wrap

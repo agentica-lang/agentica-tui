@@ -37,6 +37,12 @@ extern "termbox2"
   def tui_strerror(code: C.Int32) -> C.String
 end
 
+## What `update` gives in `program`: the next model, or the end of the loop.
+enum Step[M]
+  Continue(M)
+  Quit
+end
+
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
 ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened (no terminal, one
 ## already open), or `error("task crashed: ...")` when the block stops with a runtime error.
@@ -98,14 +104,14 @@ def render(screen: Screen, node: View.Node) -> Result[Void]
 end
 
 ## Runs an Elm-like loop from `model`: renders `view(model)`, waits for an event and gives it to `update`, until
-## `update` gives `none`. Gives the last model.
-def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Optional[M]], view: Fn[M, View.Node]) -> Result[M]
+## `update` gives `Step.Quit`. Gives the last model.
+def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Step[M]], view: Fn[M, View.Node]) -> Result[M]
   current = model
   while true
     try render(screen, view.call(current))
     case update.call(current, try poll_event(screen))
-      some(next_model) -> current = next_model
-      none -> break
+      Step.Continue(next_model) -> current = next_model
+      Step.Quit -> break
     end
   end
 

@@ -16,19 +16,19 @@ def run(screen: TUI.Screen) -> Result[Void]
   ok()
 end
 
-def update(count: Int, event: TUI.Event) -> Optional[Int]
+def update(count: Int, event: TUI.Event) -> TUI.Step[Int]
   case event
-    TUI.Event.Char("q", _) -> none
-    TUI.Event.Char("+", _) -> some(count + 1)
-    TUI.Event.Char("-", _) -> some(count - 1)
-    _ -> some(count)
+    TUI.Event.Char("q", _) -> TUI.Step.Quit
+    TUI.Event.Char("+", _) -> TUI.Step.Continue(count + 1)
+    TUI.Event.Char("-", _) -> TUI.Step.Continue(count - 1)
+    _ -> TUI.Step.Continue(count)
   end
 end
 
 def view(count: Int) -> TUI.Node
-  title = TUI.Node.Text("Counter", TUI.Style(bold: true))
-  value = TUI.Node.Text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
-  box = TUI.Node.Box(TUI.Node.Col([title, value]), 1, true, TUI.Style(fg: TUI.Color.Cyan))
-  help = TUI.Node.Row([TUI.Node.Spacer, TUI.Node.Text("+ and - count, q quits", TUI.Style(dim: true))])
-  TUI.Node.Col([box, TUI.Node.Spacer, help])
+  title = TUI.text("Counter", TUI.Style(bold: true))
+  value = TUI.text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
+  box = TUI.box(TUI.col([title, value]), padding: 1, border: TUI.Border.Line, style: TUI.Style(fg: TUI.Color.Cyan))
+  help = TUI.row([TUI.spacer(), TUI.text("+ and - count, q quits", TUI.Style(dim: true))])
+  TUI.col([box, TUI.spacer(), help])
 end

@@ -73,8 +73,8 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
 - `Style(fg:, bg:, bold:, dim:, italic:, underline:, reverse:, attrs:)`, every field optional, with `Color`
   (`Default`, the eight named colors for mode `Normal`, `Index(n)` for `Colors256`, `Rgb(r, g, b)` for `Truecolor`);
-  `attrs` takes the other attributes of `Attr` (`Blink`, `Bright`, `Strikeout`, `DoubleUnderline`, `Overline`,
-  `Invisible`, and the five above). `merge(base, over)` puts `over` on top: its colors that are not `Default`, and
+  `attrs` is for the attributes with no field of their own (`Attr.Blink`, `Bright`, `Strikeout`, `DoubleUnderline`,
+  `Overline`, `Invisible`). `merge(base, over)` puts `over` on top: its colors that are not `Default`, and
   the attributes of both.
 
 ## View tree
@@ -84,27 +84,33 @@ clears the screen, draws the tree over all of it and presents it:
 
 ```ruby
 def view(count: Int) -> TUI.Node
-  title = TUI.Node.Text("Counter", TUI.Style(bold: true))
-  value = TUI.Node.Text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
-  box = TUI.Node.Box(TUI.Node.Col([title, value]), 1, true, TUI.Style(fg: TUI.Color.Cyan))
-  TUI.Node.Col([box, TUI.Node.Spacer, TUI.Node.Row([TUI.Node.Spacer, TUI.Node.Text("q quits", TUI.Style())])])
+  title = TUI.text("Counter", TUI.Style(bold: true))
+  value = TUI.text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
+  box = TUI.box(TUI.col([title, value]), padding: 1, border: TUI.Border.Line, style: TUI.Style(fg: TUI.Color.Cyan))
+  TUI.col([box, TUI.spacer(), TUI.row([TUI.spacer(), TUI.text("q quits")])])
 end
 ```
 
-- `Text(text, style)`: the lines of `text` (`\n`), wrapped at spaces to the width it gets; a longer word is cut.
-- `Row(children)`: side by side; each child takes the width it needs of what is left, and the height of the row.
-- `Col(children)`: one under another; each child takes the whole width and the height it needs.
-- `Box(child, padding, border, style)`: `padding` cells around the child and a line border when `border` is true,
-  filled with `style`; the styles inside are drawn on it (`merge`).
-- `Spacer`: an equal share of the room the other children of a `Row` or `Col` leave.
+- `text(text, style)`: the lines of `text` (`\n`), wrapped at spaces to the width it gets; a longer word is cut.
+- `row(children)`: side by side; each child takes the width it needs of what is left, and the height of the row.
+- `col(children)`: one under another; each child takes the whole width and the height it needs.
+- `box(child, padding:, border:, style:)`: `padding` cells around the child (a negative one is 0), a border
+  (`Border.None`, the default, or `Border.Line`), filled with `style`; the styles inside are drawn on it (`merge`).
+- `spacer()`: an equal share of the room the other children of a row or a column leave.
 
-Widths are terminal columns (glibc's `wcwidth`, `src/width_table.agc`, made by `scripts/width_table.py`), so wide
-characters take two. Nothing is drawn outside the screen. `TUI.layout(node, width, height)` gives the cells without
-a terminal, for tests, and `TUI.wrap(text, width)` the wrapped lines.
+They make the variants of `Node` (`Text`, `Row`, `Col`, `Box` with a `Frame`, `Spacer`). Every node is measured once
+per level, so the layout takes about the size of the tree times its depth.
+
+Widths are terminal columns, from the `wcwidth` table of glibc 2.41 (`src/width_table.agc`, made by
+`scripts/width_table.py`), so wide characters take two. termbox2 draws with the `wcwidth` of the system's glibc: on
+an older one, a character newer than its Unicode may take another width on screen than in the layout. Nothing is
+drawn outside the screen. `TUI.layout(node, width, height)` gives the cells without a terminal, for tests, and
+`TUI.wrap(text, width)` the wrapped lines.
 
 `TUI.program(screen, model, update, view)` is an Elm-like loop: it renders `view(model)`, waits for an event, and
-takes the model that `update(model, event)` gives, until `update` gives `none`; it gives the last model.
-`examples/view.agc` is a counter written that way.
+takes the next model from `update(model, event)`, which gives `Step.Continue(model)` or `Step.Quit`; it gives the
+last model. The loop has no tick or timeout yet: it only wakes on an event. `examples/view.agc` is a counter written
+that way.
 
 ## Tests
 
