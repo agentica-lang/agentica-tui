@@ -7,23 +7,23 @@ import TUI from "../../tui"
 SETTLE_MS = 200
 
 def main() -> Void
-  case TUI.open(&draw)
+  case TUI.Raw.open(&draw)
     ok(waiter) -> puts("waiter #{Task.await(waiter)}")
     error(e) -> puts("open #{e.message}")
   end
 end
 
-def draw(screen: TUI.Screen) -> Result[Task[Result[TUI.Event]]]
+def draw(screen: TUI.Raw.Screen) -> Result[Task[Result[TUI.Event]]]
   waiter = Task.spawn(&wait, screen)
   Task.sleep(SETTLE_MS)
-  try TUI.set_output_mode(screen, TUI.OutputMode.Colors256)
-  try TUI.write(screen, 0, 0, "palette", TUI.Style(fg: TUI.Color.Index(196)))
-  try TUI.present(screen)
-  try TUI.set_output_mode(screen, TUI.OutputMode.Truecolor)
-  try TUI.write(screen, 0, 1, "true color", TUI.Style(fg: TUI.Color.Rgb(255, 128, 0)))
-  try TUI.set_cursor(screen, 5, 2)
-  try TUI.present(screen)
+  try TUI.Raw.set_output_mode(screen, TUI.OutputMode.Colors256)
+  try TUI.Raw.write(screen, 0, 0, "palette", TUI.Style(fg: TUI.Color.Index(196)))
+  try TUI.Raw.present(screen)
+  try TUI.Raw.set_output_mode(screen, TUI.OutputMode.Truecolor)
+  try TUI.Raw.write(screen, 0, 1, "true color", TUI.Style(fg: TUI.Color.Rgb(255, 128, 0)))
+  try TUI.Raw.set_cursor(screen, 5, 2)
+  try TUI.Raw.present(screen)
   ok(waiter)
 end
 
-def wait(screen: TUI.Screen) -> Result[TUI.Event] = TUI.poll_event(screen)
+def wait(screen: TUI.Raw.Screen) -> Result[TUI.Event] = TUI.Raw.poll_event(screen)

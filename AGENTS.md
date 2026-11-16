@@ -5,7 +5,7 @@ A terminal UI package for Agentica: termbox2 through the FFI.
 ## Map
 
 ```text
-tui.agc                the public API: re-exports src/
+tui.agc                the public API: re-exports src/; `module Raw` wraps src/termbox.agc
 src/termbox.agc        the extern block (resource Screen) and the wrappers: open, draw, present, events, modes
 src/event.agc          Event, Key, Mouse, Mods, InputMode; decodes the fields of a struct tb_event (pure)
 src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute values (pure)
@@ -42,7 +42,8 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
   has more than 32 items.
 - Load the `agentica-programming` and `agentica-code-guidelines` skills of the Agentica repository before writing
   `.agc` code. Lines are at most 119 characters; `agentica fmt --check` passes.
-- The package API is `tui.agc`: it re-exports `Screen` and the wrappers, never a `tui_*` function. The extern block
+- The package API is `tui.agc`: it re-exports the Elm loop, the view tree, events and styles, and its `Raw` block
+  wraps the terminal by hand (`Screen`, open, draw, events); never a `tui_*` function. The extern block
   of `src/termbox.agc` declares the resource `Screen`, so Agentica makes the block public as a whole (its `tui_*`
   functions too) and puts it above the wrappers; everything else of that file after the wrappers is after `private`.
   Decoding and attribute values stay pure (no extern) so the unit tests run without the library.

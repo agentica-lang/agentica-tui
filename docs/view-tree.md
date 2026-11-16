@@ -1,9 +1,10 @@
 # View tree
 
-A view is a tree of `TUI.Node` values. `TUI.render(screen, node, last)` draws the tree over the whole screen and
-presents it, and gives the `TUI.Grid` the screen now shows. With that grid as `last`, the next `render` writes only
-the cells that changed; with no `last`, it clears the screen first. Pass a `last` only when the render that gave it
-succeeded and nothing was drawn since.
+A view is a tree of `TUI.Node` values, which `TUI.run` draws ([Elm loop](elm-loop.md)). By hand,
+`TUI.Raw.render(screen, node, last)` draws the tree over the whole screen and presents it, and gives the
+`TUI.Raw.Grid` the screen now shows. With that grid as `last`, the next `render` writes only the cells that changed;
+with no `last`, it clears the screen first. Pass a `last` only when the render that gave it succeeded and nothing was
+drawn since.
 
 ```ruby
 import TUI from "pkg/tui/tui"
@@ -37,7 +38,7 @@ These build the variants of `Node`: `Text(text, style)`, `Row(children)`, `Col(c
 `Cell(x:, y:, char:, style:)`. `render` draws those cells. Nothing is drawn outside the screen. Each node is
 measured once per level of the tree, so the time grows with the size of the tree times its depth.
 
-`TUI.diff(old, new)` gives the cells to write to turn one `Grid` into another: those that differ, or all of `new`
+`TUI.Raw.diff(old, new)` gives the cells to write to turn one `Grid` into another: those that differ, or all of `new`
 when the size differs.
 
 `TUI.wrap(text, width)` gives the lines that `text` wraps to.

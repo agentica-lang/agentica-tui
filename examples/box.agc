@@ -1,5 +1,5 @@
-## A box that moves with the arrow keys or a mouse click; the top line shows the size of the terminal and the last
-## event. q or Escape quits.
+## The terminal by hand with `TUI.Raw` (examples/view.agc is the Elm loop): a box that moves with the arrow keys or a
+## mouse click; the top line shows the size of the terminal and the last event. q or Escape quits.
 ##
 ## Run it from the repository after `make native`: `agentica examples/box.agc`.
 
@@ -17,18 +17,18 @@ struct Demo
 end
 
 def main() -> Void
-  case TUI.open(&run)
+  case TUI.Raw.open(&run)
     ok(_) -> puts("bye")
     error(e) -> IO.warn(e.message)
   end
 end
 
-def run(screen: TUI.Screen) -> Result[Void]
-  try TUI.set_input_mode(screen, TUI.InputMode.Esc, true)
+def run(screen: TUI.Raw.Screen) -> Result[Void]
+  try TUI.Raw.set_input_mode(screen, TUI.InputMode.Esc, true)
   demo = Demo(x: 2, y: 2, last: "none")
   while true
     try draw(screen, demo)
-    event = try TUI.poll_event(screen)
+    event = try TUI.Raw.poll_event(screen)
     break if quit?(event)
 
     demo = place(screen, step(demo, event)).with(last: describe(event))
@@ -37,12 +37,12 @@ def run(screen: TUI.Screen) -> Result[Void]
   ok()
 end
 
-def draw(screen: TUI.Screen, demo: Demo) -> Result[Void]
-  try TUI.clear(screen)
-  width = TUI.width(screen)
-  height = TUI.height(screen)
+def draw(screen: TUI.Raw.Screen, demo: Demo) -> Result[Void]
+  try TUI.Raw.clear(screen)
+  width = TUI.Raw.width(screen)
+  height = TUI.Raw.height(screen)
   status = "size #{width}x#{height}  last #{demo.last}  arrows move, q quits"
-  try TUI.write(screen, 0, 0, status, TUI.Style(bold: true))
+  try TUI.Raw.write(screen, 0, 0, status, TUI.Style(bold: true))
   border = TUI.Style(fg: TUI.Color.Cyan)
   inner = List.repeat(" ", BOX_WIDTH - 2).join("")
   line = List.repeat("─", BOX_WIDTH - 2).join("")
@@ -50,11 +50,11 @@ def draw(screen: TUI.Screen, demo: Demo) -> Result[Void]
     y = demo.y + row
     if y < height and demo.x < width
       text = box_row(row, inner, line)
-      try TUI.write(screen, demo.x, y, text, border)
+      try TUI.Raw.write(screen, demo.x, y, text, border)
     end
   end
 
-  TUI.present(screen)
+  TUI.Raw.present(screen)
 end
 
 def box_row(row: Int, inner: String, line: String) -> String
@@ -88,9 +88,9 @@ def step(demo: Demo, event: TUI.Event) -> Demo
 end
 
 # Keeps the box on the screen, below the status line, also after a resize.
-def place(screen: TUI.Screen, demo: Demo) -> Demo
-  x = within(demo.x, 0, TUI.width(screen) - BOX_WIDTH)
-  y = within(demo.y, TOP, TUI.height(screen) - BOX_HEIGHT)
+def place(screen: TUI.Raw.Screen, demo: Demo) -> Demo
+  x = within(demo.x, 0, TUI.Raw.width(screen) - BOX_WIDTH)
+  y = within(demo.y, TOP, TUI.Raw.height(screen) - BOX_HEIGHT)
   demo.with(x: x, y: y)
 end
 

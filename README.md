@@ -56,7 +56,7 @@ end
 - [Elm loop](docs/elm-loop.md): `TUI.run`, `App`, `Step`, commands and subscriptions.
 - [Events](docs/events.md): keys, mouse, paste and resize.
 - [Styles](docs/styles.md): colors, attributes and `merge`.
-- [Low level](docs/low-level.md): cells, `present`, waiting for events, tasks.
+- [Low level](docs/low-level.md): `TUI.Raw`, cells, `present`, waiting for events, tasks.
 - [Native library](docs/native.md): termbox2, the `.so` and how CI builds it.
 - [Tests](docs/tests.md): the test suites and how to test a view.
 - [llms.txt](docs/llms.txt): these pages as links, for language models.

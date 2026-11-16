@@ -4,19 +4,19 @@
 import TUI from "../../tui"
 
 def main() -> Void
-  case TUI.open(&record)
+  case TUI.Raw.open(&record)
     ok(lines) -> lines.each do |line| puts(line) end
     error(e) -> fail(e.message)
   end
 end
 
-def record(screen: TUI.Screen) -> Result[List[String]]
-  try TUI.set_input_mode(screen, TUI.InputMode.Esc, true)
-  quiet = try TUI.peek_event(screen, 50)
+def record(screen: TUI.Raw.Screen) -> Result[List[String]]
+  try TUI.Raw.set_input_mode(screen, TUI.InputMode.Esc, true)
+  quiet = try TUI.Raw.peek_event(screen, 50)
   lines = ["peek #{quiet}"]
-  try show(screen, "ready #{TUI.width(screen)}x#{TUI.height(screen)}")
+  try show(screen, "ready #{TUI.Raw.width(screen)}x#{TUI.Raw.height(screen)}")
   while true
-    event = try TUI.poll_event(screen)
+    event = try TUI.Raw.poll_event(screen)
     case event
       TUI.Event.Char("q", _) -> break
       _ -> lines = lines.push("#{event}")
@@ -28,11 +28,11 @@ def record(screen: TUI.Screen) -> Result[List[String]]
   ok(lines)
 end
 
-def show(screen: TUI.Screen, text: String) -> Result[Void]
-  try TUI.clear(screen)
-  try TUI.set_cell(screen, 2, 1, "#", TUI.Style(fg: TUI.Color.Red, bold: true))
-  try TUI.write(screen, 0, 0, text)
-  TUI.present(screen)
+def show(screen: TUI.Raw.Screen, text: String) -> Result[Void]
+  try TUI.Raw.clear(screen)
+  try TUI.Raw.set_cell(screen, 2, 1, "#", TUI.Style(fg: TUI.Color.Red, bold: true))
+  try TUI.Raw.write(screen, 0, 0, text)
+  TUI.Raw.present(screen)
 end
 
 def fail(message: String) -> Void

@@ -6,12 +6,14 @@
 - `update(model, msg)`: gives a `TUI.Step` with the next model and the commands to run;
 - `view(model)`: the [view tree](view-tree.md) of a model;
 - `subscriptions(model)`: what the loop listens to while the model is this one;
-- `cmds`: the commands to run at the start (none when left out).
+- `cmds`: the commands to run at the start (none when left out);
+- `input`, `mouse`, `output`: how Escape is read (`InputMode.Esc` when left out), whether mouse events come (`false`)
+  and how colors are sent (`OutputMode.Normal`); see [Events](events.md) and [Styles](styles.md).
 
 The messages are your own type, often an enum. The loop takes every message that is waiting, gives each to
 `update`, then draws `view(model)` once, writing only the cells that changed. It gives the last model when a command
-is `Cmd.Quit`; a key typed after that may be lost. A runtime error in `update`, `view` or `subscriptions` ends the
-loop with that error, given once the terminal is restored. `TUI.program(screen, app)` is the same loop on a screen
+is `Cmd.Quit`; the messages after it never reach `update`, and a key typed after it may be lost. A runtime error in `update`, `view` or `subscriptions` ends the
+loop with that error, given once the terminal is restored. `TUI.Raw.program(screen, app)` is the same loop on a screen
 that is already open.
 
 ## Commands
