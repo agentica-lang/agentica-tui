@@ -12,7 +12,8 @@ src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute va
 native/termbox2/       termbox2.h vendored at a tag (VERSION has the tag, commit and sha256), its MIT LICENSE
 native/tui.c           termbox2 plus the tui_* functions the bindings call: one lock around every termbox2 call,
                        tui_shutdown (the free function of Screen), tui_wait_event (waits of at most 50 ms)
-examples/box.agc       the demo
+examples/              the demos (box.agc, view.agc)
+docs/                  the user guide, one topic per page; README.md links each page
 tests/*_test.agc       unit tests of the pure helpers
 tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fixtures/*.agc and the demo
 ```
@@ -24,7 +25,8 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - `native/linux/libtermbox2.so` is committed: the `native` job of CI builds it on ubuntu-22.04 (`make
   native-verify` compares a fresh build with it, byte for byte) and uploads the build. After a change of `native/`,
   commit that artifact (`gh run download RUN -n libtermbox2-linux-x86_64`), never a local build: it may need a newer
-  glibc, and update its sha256 in the README and the CHANGELOG. `make native` rebuilds it in place for local work.
+  glibc, and update its sha256 in `docs/native.md` and the CHANGELOG. `make native` rebuilds it in place
+  for local work.
   `make native-verify` fails on a machine whose gcc or glibc differs from ubuntu-22.04 (it prints both sha256): only
   the CI job is the judge.
 - `make test AGENTICA=...`: `check`, `unit` (`agentica test tests`), `pty` (`python3 -m unittest`).
