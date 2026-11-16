@@ -20,6 +20,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `TUI.render(screen, node)`, measured in terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its
   cells without a terminal.
 - `TUI.program(screen, model, update, view)`, an Elm-like loop over the view tree; `update` gives a `Step`.
+- An SGR (1006) or urxvt (1015) mouse report keeps the input after it (a key, another report, a paste): the library
+  reads these reports itself, strictly, and drops an unknown CSI sequence instead of reading it as a click.
 - Bracketed paste: the screen turns it on and off, and a paste is one `Event.Paste(text)`, so its keys never come
   as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).

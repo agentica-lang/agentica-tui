@@ -184,6 +184,110 @@ static int extract_paste(struct tb_event *event, size_t *consumed) {
     return TB_ERR_NEED_MORE;
 }
 
+/* The end of the CSI sequence at the start of `in` (after its final byte):
+ * 1 when it is whole, 0 when more bytes may come, -1 when it is no CSI. */
+static int csi_end(const struct bytebuf_t *in, size_t *end) {
+    size_t i = 2;
+    while (i < in->len && in->buf[i] >= 0x30 && in->buf[i] <= 0x3f) {
+        i++;
+    }
+    while (i < in->len && in->buf[i] >= 0x20 && in->buf[i] <= 0x2f) {
+        i++;
+    }
+    if (i == in->len) {
+        return 0;
+    }
+    if (in->buf[i] < 0x40 || in->buf[i] > 0x7e) {
+        return -1;
+    }
+    *end = i + 1;
+    return 1;
+}
+
+static int read_number(const char *buf, size_t *at, size_t end, unsigned *n) {
+    size_t start = *at;
+    *n = 0;
+    while (*at < end && buf[*at] >= '0' && buf[*at] <= '9' && *at - start < 6) {
+        *n = *n * 10 + (unsigned)(buf[*at] - '0');
+        (*at)++;
+    }
+    return *at > start;
+}
+
+static int read_separator(const char *buf, size_t *at, size_t end) {
+    if (*at >= end || buf[*at] != ';') {
+        return 0;
+    }
+    (*at)++;
+    return 1;
+}
+
+/* termbox2's own reader of SGR (1006) and urxvt (1015) mouse reports drops
+ * the rest of the input and reads any unknown CSI as one, so this reads them
+ * first, strictly: `ESC [ < b ; x ; y` and M or m, or `ESC [ b ; x ; y M`. A
+ * whole CSI that is neither a report nor a key termbox2 knows is dropped
+ * (an event of kind TUI_EVENT_NONE). X10 reports (`ESC [ M`) stay with
+ * termbox2. */
+static int extract_mouse(struct tb_event *event, size_t *consumed) {
+    struct bytebuf_t *in = &global.in;
+    size_t end = 0;
+    if (in->len < 3 || in->buf[0] != '\x1b' || in->buf[1] != '[' || in->buf[2] == 'M') {
+        return TB_ERR;
+    }
+    if (csi_end(in, &end) != 1) {
+        return TB_ERR;
+    }
+    struct cap_trie_t *node = NULL;
+    size_t depth = 0;
+    if (cap_trie_find(in->buf, in->len, &node, &depth) == TB_OK && node->is_leaf) {
+        return TB_ERR;
+    }
+    int sgr = in->buf[2] == '<';
+    size_t at = sgr ? 3 : 2;
+    unsigned b = 0, x = 0, y = 0;
+    char final = in->buf[end - 1];
+    int report = read_number(in->buf, &at, end, &b) && read_separator(in->buf, &at, end) &&
+        read_number(in->buf, &at, end, &x) && read_separator(in->buf, &at, end) &&
+        read_number(in->buf, &at, end, &y) && at == end - 1 && x > 0 && y > 0 &&
+        (final == 'M' || (sgr && final == 'm')) && (sgr || b >= 0x20);
+    event->mod = 0;
+    event->ch = 0;
+    *consumed = end;
+    if (!report) {
+        event->type = TUI_EVENT_NONE;
+        event->key = 0;
+        return TB_OK;
+    }
+    if (!sgr) {
+        b -= 0x20;
+    }
+    static const uint16_t buttons[] = {TB_KEY_MOUSE_LEFT, TB_KEY_MOUSE_MIDDLE, TB_KEY_MOUSE_RIGHT,
+        TB_KEY_MOUSE_RELEASE};
+    event->key = buttons[b & 3];
+    if ((b & 64) != 0 && (b & 3) < 2) {
+        event->key = (b & 3) == 0 ? TB_KEY_MOUSE_WHEEL_UP : TB_KEY_MOUSE_WHEEL_DOWN;
+    }
+    if (final == 'm') {
+        event->key = TB_KEY_MOUSE_RELEASE;
+    }
+    if ((b & 32) != 0) {
+        event->mod |= TB_MOD_MOTION;
+    }
+    event->type = TB_EVENT_MOUSE;
+    event->x = (int32_t)x - 1;
+    event->y = (int32_t)y - 1;
+    return TB_OK;
+}
+
+/* termbox2's hook before it reads an escape sequence. */
+static int extract_pre(struct tb_event *event, size_t *consumed) {
+    int rv = extract_paste(event, consumed);
+    if (rv != TB_ERR) {
+        return rv;
+    }
+    return extract_mouse(event, consumed);
+}
+
 /* tb_init, giving the screen token through `screen` on success. A second
  * open fails before it touches the locale. */
 int tui_init(void **screen) {
@@ -193,7 +297,7 @@ int tui_init(void **screen) {
         use_utf8_ctype();
         rv = tb_init();
         if (rv == TB_OK) {
-            tb_set_func(TB_FUNC_EXTRACT_PRE, extract_paste);
+            tb_set_func(TB_FUNC_EXTRACT_PRE, extract_pre);
             send_now("\x1b[?2004h");
             tui_opened = 1;
             *screen = &tui_screen;
