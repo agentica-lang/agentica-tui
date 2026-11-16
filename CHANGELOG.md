@@ -14,6 +14,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   and may draw, while they wait; closing the screen ends a wait with an error.
 - A mouse event with a key the library does not name is `Event.Key(Key.Other(code), mods)`; an unknown event kind
   is skipped.
+- `Style` has the fields `bold`, `dim`, `italic`, `underline` and `reverse` (`attrs` still works), and
+  `TUI.merge(base, over)` puts one style on top of another.
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
 - termbox2 v2.5.0, vendored, built into `libtermbox2`; the package ships it prebuilt for Linux x86_64 (glibc 2.33 or
   later), so `agentica add` and `agentica install` work with no C compiler. sha256 `32b1321834545539e9e1ef0fa073b8670a92061a172e1f594bd9399940999661`; CI checks it is byte

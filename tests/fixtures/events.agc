@@ -30,7 +30,7 @@ end
 
 def show(screen: TUI.Screen, text: String) -> Result[Void]
   try TUI.clear(screen)
-  try TUI.set_cell(screen, 2, 1, "#", TUI.Style(fg: TUI.Color.Red, attrs: [TUI.Attr.Bold]))
+  try TUI.set_cell(screen, 2, 1, "#", TUI.Style(fg: TUI.Color.Red, bold: true))
   try TUI.write(screen, 0, 0, text)
   TUI.present(screen)
 end
