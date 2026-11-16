@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
   frame no longer clears the screen. `TUI.diff` compares two grids.
+- `TUI.run(app)` opens the terminal and runs the Elm loop; ticks (`Sub.Tick`) and commands in tasks (`Cmd.Run`).
 - `TUI.open`, a block form that opens the terminal and always restores it; a crash in the block comes back as an
   error.
 - Drawing: `clear`, `set_cell`, `write`, `present`, `width`, `height`, `set_cursor` and `hide_cursor`, with `Style`,
@@ -21,7 +22,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A view tree: `TUI.Node`, built with `TUI.text`, `row`, `col`, `box` and `spacer`, drawn by
   `TUI.render(screen, node)`, measured in terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its
   cells without a terminal.
-- `TUI.program(screen, model, update, view)`, an Elm-like loop over the view tree; `update` gives a `Step`.
+- `TUI.program(screen, app)`, the Elm loop on an open screen: a `TUI.App` of `model`, `update`, `view` and
+  `subscriptions`; `update` gives a `Step` of the next model and its commands.
 - An SGR (1006) or urxvt (1015) mouse report keeps the input after it (a key, another report, a paste): the library
   reads these reports itself, strictly, and drops an unknown CSI sequence with parameters instead of reading it as
   a click; Alt+[ and a letter stay Escape (or Alt) and the characters.
@@ -35,5 +37,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking:** `TUI.render` gives `Result[Grid]` (was `Result[Void]`).
+- **Breaking:** `TUI.program` takes a `TUI.App`; `update` gets your messages and gives `TUI.Step(model:, cmds:)`,
+  and `Cmd.Quit` ends the loop (was `Step.Continue` and `Step.Quit`).
+- Layout and grids are about twice as fast on a 200x60 screen.
 - **Breaking:** needs Agentica 0.31.0 (was 0.20.0); an error of `TUI.open` and the other functions is an `Error`
   record, so `error(e)` reads its text as `e.message`.

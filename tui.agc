@@ -20,6 +20,7 @@
 
 import Ev from "src/event"
 import Gr from "src/grid"
+import Pg from "src/program"
 import St from "src/style"
 import Tb from "src/termbox"
 import View from "src/view"
@@ -33,8 +34,12 @@ export Tb.set_cell
 export Tb.write
 export Tb.present
 export Tb.render
-export Tb.program
-export Tb.Step
+export Pg.run
+export Pg.program
+export Pg.App
+export Pg.Step
+export Pg.Cmd
+export Pg.Sub
 export Tb.set_cursor
 export Tb.hide_cursor
 export Tb.poll_event

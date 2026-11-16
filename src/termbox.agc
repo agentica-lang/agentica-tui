@@ -40,12 +40,6 @@ extern "termbox2"
   def tui_paste_copy(screen: Screen, dest: C.Pointer, room: C.Int64) -> C.Int64
 end
 
-## What `update` gives in `program`: the next model, or the end of the loop.
-enum Step[M]
-  Continue(M)
-  Quit
-end
-
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
 ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened (no terminal, one
 ## already open), or `error("task crashed: ...")` when the block stops with a runtime error.
@@ -106,28 +100,17 @@ def render(screen: Screen, node: View.Node, last: Optional[Gr.Grid] = none) -> R
 
   next = Gr.of(node, width(screen), height(screen))
   for cell in Gr.diff(shown, next)
-    try set_cell(screen, cell.x, cell.y, cell.char, cell.style)
+    # A covered cell gets a space, which termbox2 skips after a character it finds wide.
+    char = cell.char
+    if char == ""
+      char = " "
+    end
+
+    try set_cell(screen, cell.x, cell.y, char, cell.style)
   end
 
   try present(screen)
   ok(next)
-end
-
-## Runs an Elm-like loop from `model`: renders `view(model)`, waits for an event and gives it to `update`, until
-## `update` gives `Step.Quit`. Gives the last model.
-def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Step[M]], view: Fn[M, View.Node]) -> Result[M]
-  current = model
-  shown: Optional[Gr.Grid] = none
-  while true
-    drawn = try render(screen, view.call(current), shown)
-    shown = some(drawn)
-    case update.call(current, try poll_event(screen))
-      Step.Continue(next_model) -> current = next_model
-      Step.Quit -> break
-    end
-  end
-
-  ok(current)
 end
 
 ## Shows the back buffer on the terminal: nothing drawn appears before this.

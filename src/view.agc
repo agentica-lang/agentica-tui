@@ -62,7 +62,7 @@ def spacer() -> Node = Node.Spacer
 
 ## The cells of `node` on a screen of `width` by `height`, in drawing order.
 def layout(node: Node, width: Int, height: Int) -> List[Cell]
-  draw(node, Area(x: 0, y: 0, width: width, height: height), St.Style())
+  draw(node, Area(x: 0, y: 0, width: width, height: height), St.Style(), [])
 end
 
 ## The lines of `text` in `width` columns: split at `\n`, wrapped at spaces, and cut where a word does not fit.
@@ -86,15 +86,16 @@ struct Size
   height: Int
 end
 
-def draw(node: Node, area: Area, base: St.Style) -> List[Cell]
-  return [] if area.width <= 0 or area.height <= 0
+# `cells` with those of `node` after them. The cells are passed down, not joined: `xs + ys` copies both lists.
+def draw(node: Node, area: Area, base: St.Style, cells: List[Cell]) -> List[Cell]
+  return cells if area.width <= 0 or area.height <= 0
 
   case node
-    Node.Text(text, style) -> text_cells(text, area, St.merge(base, style))
-    Node.Row(children) -> row_cells(children, area, base)
-    Node.Col(children) -> col_cells(children, area, base)
-    Node.Box(child, frame) -> box_cells(child, frame, area, St.merge(base, frame.style))
-    Node.Spacer -> []
+    Node.Text(text, style) -> text_cells(text, area, St.merge(base, style), cells)
+    Node.Row(children) -> row_cells(children, area, base, cells)
+    Node.Col(children) -> col_cells(children, area, base, cells)
+    Node.Box(child, frame) -> box_cells(child, frame, area, St.merge(base, frame.style), cells)
+    Node.Spacer -> cells
   end
 end
 
@@ -179,35 +180,35 @@ def shared(children: List[Node], fixed: List[Int], room: Int) -> List[Int]
   out
 end
 
-def row_cells(children: List[Node], area: Area, base: St.Style) -> List[Cell]
+def row_cells(children: List[Node], area: Area, base: St.Style, into: List[Cell]) -> List[Cell]
   sizes = row_sizes(children, area.width)
-  cells: List[Cell] = []
+  cells = into
   x = area.x
   for i in 0...children.size
     part = Area(x: x, y: area.y, width: [sizes[i].width, area.x + area.width - x].min.unwrap!, height: area.height)
-    cells = cells + draw(children[i], part, base)
+    cells = draw(children[i], part, base, cells)
     x = x + sizes[i].width
   end
 
   cells
 end
 
-def col_cells(children: List[Node], area: Area, base: St.Style) -> List[Cell]
+def col_cells(children: List[Node], area: Area, base: St.Style, into: List[Cell]) -> List[Cell]
   heights = col_heights(children, area.width, area.height)
-  cells: List[Cell] = []
+  cells = into
   y = area.y
   for i in 0...children.size
     part = Area(x: area.x, y: y, width: area.width, height: [heights[i], area.y + area.height - y].min.unwrap!)
-    cells = cells + draw(children[i], part, base)
+    cells = draw(children[i], part, base, cells)
     y = y + heights[i]
   end
 
   cells
 end
 
-def box_cells(child: Node, frame: Frame, area: Area, style: St.Style) -> List[Cell]
+def box_cells(child: Node, frame: Frame, area: Area, style: St.Style, into: List[Cell]) -> List[Cell]
   lined = frame.border == Border.Line
-  cells: List[Cell] = []
+  cells = into
   for y in area.y...(area.y + area.height)
     for x in area.x...(area.x + area.width)
       cells = cells.push(Cell(x: x, y: y, char: frame_char(lined, x, y, area), style: style))
@@ -217,7 +218,7 @@ def box_cells(child: Node, frame: Frame, area: Area, style: St.Style) -> List[Ce
   edge = inset(frame)
   inner = Area(x: area.x + edge, y: area.y + edge, width: area.width - 2 * edge, height: area.height - 2 * edge)
 
-  cells + draw(child, inner, style)
+  draw(child, inner, style, cells)
 end
 
 # The cells between the edge of a box and its child; a negative padding counts as 0.
@@ -245,9 +246,9 @@ def frame_char(lined: Bool, x: Int, y: Int, area: Area) -> String
   " "
 end
 
-def text_cells(text: String, area: Area, style: St.Style) -> List[Cell]
+def text_cells(text: String, area: Area, style: St.Style, into: List[Cell]) -> List[Cell]
   lines = wrap(text, area.width).take(area.height)
-  cells: List[Cell] = []
+  cells = into
   for row in 0...lines.size
     x = area.x
     for char in lines[row].split("")
@@ -266,14 +267,17 @@ end
 def wrap_line(line: String, width: Int) -> List[String]
   out: List[String] = []
   current = ""
+  # The width of `current`, kept so that each word is measured once.
+  used = 0
   for word in line.split(" ")
-    joined = "#{current} #{word}"
-    if current == ""
-      joined = word
-    end
-
-    if Width.text(joined) <= width
-      current = joined
+    columns = Width.text(word)
+    if current == "" and columns <= width
+      current = word
+      used = columns
+      next
+    elsif current != "" and used + 1 + columns <= width
+      current = "#{current} #{word}"
+      used = used + 1 + columns
       next
     end
 
@@ -291,6 +295,8 @@ def wrap_line(line: String, width: Int) -> List[String]
       out = out.push(parts[0])
       current = parts[1]
     end
+
+    used = Width.text(current)
   end
 
   out.push(current)

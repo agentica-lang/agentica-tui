@@ -1,15 +1,16 @@
 # View tree
 
-A view is a tree of `TUI.Node` values. `TUI.render(screen, node)` clears the screen, draws the tree over all of it
-and presents it. It gives back the `TUI.Grid` the screen now shows; pass it as `last` to the next `render`, which then
-writes only the cells that changed and does not clear.
+A view is a tree of `TUI.Node` values. `TUI.render(screen, node, last)` draws the tree over the whole screen and
+presents it, and gives the `TUI.Grid` the screen now shows. With that grid as `last`, the next `render` writes only
+the cells that changed; with no `last`, it clears the screen first. Pass a `last` only when the render that gave it
+succeeded and nothing was drawn since.
 
 ```ruby
 import TUI from "pkg/tui/tui"
 
 def view(count: Int) -> TUI.Node
-  title = TUI.text("Counter", TUI.Style(bold: true))
-  value = TUI.text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
+  title = TUI.text("Counter", style: TUI.Style(bold: true))
+  value = TUI.text("count: #{count}", style: TUI.Style(fg: TUI.Color.Green))
   box = TUI.box(TUI.col([title, value]), padding: 1, border: TUI.Border.Line, style: TUI.Style(fg: TUI.Color.Cyan))
   TUI.col([box, TUI.spacer(), TUI.row([TUI.spacer(), TUI.text("q quits")])])
 end

@@ -9,6 +9,9 @@ tui.agc                the public API: re-exports src/
 src/termbox.agc        the extern block (resource Screen) and the wrappers: open, draw, present, events, modes
 src/event.agc          Event, Key, Mouse, Mods, InputMode; decodes the fields of a struct tb_event (pure)
 src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute values (pure)
+src/view.agc           the view tree and its layout into cells (pure)
+src/grid.agc           Grid, a screen as a value, and diff (pure)
+src/program.agc        the Elm loop: App, Step, Cmd, Sub, run and program
 native/termbox2/       termbox2.h vendored at a tag (VERSION has the tag, commit and sha256), its MIT LICENSE
 native/tui.c           termbox2 plus the tui_* functions the bindings call: one lock around every termbox2 call,
                        tui_shutdown (the free function of Screen), tui_wait_event (waits of at most 50 ms)
@@ -35,6 +38,8 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 ## Rules
 
 - Search with `rg`.
+- On a hot path (layout, grids), add to a list with `push` or pass it down: `xs + ys` copies both lists when `ys`
+  has more than 32 items.
 - Load the `agentica-programming` and `agentica-code-guidelines` skills of the Agentica repository before writing
   `.agc` code. Lines are at most 119 characters; `agentica fmt --check` passes.
 - The package API is `tui.agc`: it re-exports `Screen` and the wrappers, never a `tui_*` function. The extern block

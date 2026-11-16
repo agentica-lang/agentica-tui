@@ -15,7 +15,8 @@ Under the [view tree](view-tree.md) is a grid of cells with a back buffer. Every
 - `poll_event(screen)`, `peek_event(screen, timeout_ms)`: see [Events](events.md).
 - `set_input_mode(screen, mode, mouse)`, `set_output_mode(screen, mode)`.
 
-`style` may be left out. A loop with a tick, which [`TUI.program`](elm-loop.md) does not have:
+`style` may be left out. A loop written by hand with a one-second wait (in [`TUI.run`](elm-loop.md) it is a
+`Sub.Tick`):
 
 ```ruby
 import TUI from "pkg/tui/tui"
