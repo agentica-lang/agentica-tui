@@ -45,17 +45,36 @@ enum OutputMode
   Truecolor
 end
 
-## The colors and attributes of a cell or a text.
+## The colors and attributes of a cell or a text. `attrs` holds the attributes that have no field of their own.
 struct Style
   fg: Color = Color.Default
   bg: Color = Color.Default
+  bold: Bool = false
+  dim: Bool = false
+  italic: Bool = false
+  underline: Bool = false
+  reverse: Bool = false
   attrs: List[Attr] = []
+end
+
+## `over` drawn on `base`: its colors where they are not `Default`, and the attributes of both.
+def merge(base: Style, over: Style) -> Style
+  Style(
+    fg: on_top(base.fg, over.fg),
+    bg: on_top(base.bg, over.bg),
+    bold: base.bold or over.bold,
+    dim: base.dim or over.dim,
+    italic: base.italic or over.italic,
+    underline: base.underline or over.underline,
+    reverse: base.reverse or over.reverse,
+    attrs: base.attrs + over.attrs.select { |attr| not base.attrs.include?(attr) },
+  )
 end
 
 ## The termbox2 foreground value of a style: its color and its attributes.
 def fg_value(style: Style) -> Result[Int]
   color = try color_value(style.fg)
-  ok(style.attrs.reduce(color) do |bits, attr| bits.bit_or(attr_value(attr)) end)
+  ok(all_attrs(style).reduce(color) do |bits, attr| bits.bit_or(attr_value(attr)) end)
 end
 
 ## The termbox2 background value of a style: its color.
@@ -95,6 +114,11 @@ HI_BLACK = 0x2000_0000
 MAX_INDEX = 255
 MAX_CHANNEL = 255
 
+struct Flag
+  on: Bool
+  attr: Attr
+end
+
 def index_value(index: Int) -> Result[Int]
   return error("tui: color index out of range 0..#{MAX_INDEX}: #{index}") if index < 0 or index > MAX_INDEX
 
@@ -111,6 +135,24 @@ def rgb_value(red: Int, green: Int, blue: Int) -> Result[Int]
   return ok(HI_BLACK) if value == 0
 
   ok(value)
+end
+
+def on_top(base: Color, over: Color) -> Color
+  return base if over == Color.Default
+
+  over
+end
+
+def all_attrs(style: Style) -> List[Attr]
+  flags = [
+    Flag(on: style.bold, attr: Attr.Bold),
+    Flag(on: style.dim, attr: Attr.Dim),
+    Flag(on: style.italic, attr: Attr.Italic),
+    Flag(on: style.underline, attr: Attr.Underline),
+    Flag(on: style.reverse, attr: Attr.Reverse),
+  ]
+
+  flags.select { |flag| flag.on }.map { |flag| flag.attr } + style.attrs
 end
 
 # termbox2.h, `TB_OPT_ATTR_W == 64`.

@@ -42,7 +42,7 @@ def draw(screen: TUI.Screen, demo: Demo) -> Result[Void]
   width = TUI.width(screen)
   height = TUI.height(screen)
   status = "size #{width}x#{height}  last #{demo.last}  arrows move, q quits"
-  try TUI.write(screen, 0, 0, status, TUI.Style(attrs: [TUI.Attr.Bold]))
+  try TUI.write(screen, 0, 0, status, TUI.Style(bold: true))
   border = TUI.Style(fg: TUI.Color.Cyan)
   inner = List.repeat(" ", BOX_WIDTH - 2).join("")
   line = List.repeat("─", BOX_WIDTH - 2).join("")

@@ -44,4 +44,5 @@ export Ev.InputMode
 export St.Color
 export St.Attr
 export St.Style
+export St.merge
 export St.OutputMode

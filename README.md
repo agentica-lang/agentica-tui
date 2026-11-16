@@ -71,9 +71,11 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
 - `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`.
 - `Key`: `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`,
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
-- `Style(fg:, bg:, attrs:)` with `Color` (`Default`, the eight named colors for mode `Normal`, `Index(n)` for
-  `Colors256`, `Rgb(r, g, b)` for `Truecolor`) and `Attr` (`Bold`, `Underline`, `Reverse`, `Italic`, `Blink`, `Dim`,
-  `Bright`, `Strikeout`, `DoubleUnderline`, `Overline`, `Invisible`).
+- `Style(fg:, bg:, bold:, dim:, italic:, underline:, reverse:, attrs:)`, every field optional, with `Color`
+  (`Default`, the eight named colors for mode `Normal`, `Index(n)` for `Colors256`, `Rgb(r, g, b)` for `Truecolor`);
+  `attrs` takes the other attributes of `Attr` (`Blink`, `Bright`, `Strikeout`, `DoubleUnderline`, `Overline`,
+  `Invisible`, and the five above). `merge(base, over)` puts `over` on top: its colors that are not `Default`, and
+  the attributes of both.
 
 ## Tests
 

@@ -28,6 +28,24 @@ def main() -> Void
       try Test.eq(St.bg_value(style), ok(5))
       Test.eq(St.fg_value(St.Style(attrs: [St.Attr.Invisible])), ok(0x8_0000_0000))
     end,
+    Test.test("the attribute fields go on the foreground with attrs") do
+      style = St.Style(bold: true, dim: true, italic: true, underline: true, reverse: true, attrs: [St.Attr.Bold])
+      Test.eq(St.fg_value(style), ok(BOLD + 0x8000_0000 + 0x0800_0000 + UNDERLINE + 0x0400_0000))
+    end,
+    Test.test("merge puts the colors that are set on top and keeps the attributes of both") do
+      base = St.Style(fg: St.Color.Red, bg: St.Color.Blue, bold: true, attrs: [St.Attr.Blink])
+      over = St.Style(fg: St.Color.Green, underline: true, attrs: [St.Attr.Blink, St.Attr.Overline])
+      merged = St.Style(
+        fg: St.Color.Green,
+        bg: St.Color.Blue,
+        bold: true,
+        underline: true,
+        attrs: [St.Attr.Blink, St.Attr.Overline],
+      )
+
+      try Test.eq(St.merge(base, over), merged)
+      Test.eq(St.merge(over, St.Style()), over)
+    end,
     Test.test("output modes") do
       try Test.eq(St.output_mode_value(St.OutputMode.Normal), 1)
       try Test.eq(St.output_mode_value(St.OutputMode.Colors256), 2)
