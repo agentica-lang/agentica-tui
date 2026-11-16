@@ -234,8 +234,8 @@ def row_sizes(children: List[Node], width: Int) -> List[Size]
   (0...sizes.size).map { |i| sizes[i].with(width: widths[i]) }
 end
 
-# Each child first gets the fewest lines it takes, in order while there is room; the rest goes to the children
-# that grow, evenly, each up to the most it takes.
+# Each child first gets the fewest lines it takes, in order while there is room. The rest goes to the children
+# that grow up to a limit (lists), evenly, each up to the most it takes; what they leave goes to the spacers.
 def col_heights(children: List[Node], width: Int, height: Int) -> List[Int]
   extents = children.map { |child| extent(child, width) }
   left = height
@@ -246,13 +246,17 @@ def col_heights(children: List[Node], width: Int, height: Int) -> List[Int]
     left = left - used
   end
 
-  grown(heights, extents, left)
+  limited = (0...extents.size).select { |i| extents[i].most < UNBOUNDED }
+  filled = grown(heights, extents, left, limited)
+  free = (0...extents.size).select { |i| extents[i].most >= UNBOUNDED }
+  grown(filled, extents, left - filled.sum + heights.sum, free)
 end
 
-def grown(heights: List[Int], extents: List[Extent], room: Int) -> List[Int]
+# `heights` with `room` shared by the children at `indices`, evenly, each up to the most it takes.
+def grown(heights: List[Int], extents: List[Extent], room: Int, indices: List[Int]) -> List[Int]
   out = heights
   left = room
-  growing = (0...out.size).select { |i| extents[i].most > out[i] }
+  growing = indices.select { |i| extents[i].most > out[i] }
   while left > 0 and not growing.empty?
     share = left / growing.size
     if share == 0

@@ -48,14 +48,29 @@ def main() -> Void
 
       Test.eq(lines(boxed, 9, 6), ["head     ", "┌───────┐", "│item 19│", "│item 20│", "└───────┘", "foot     "])
     end,
-    Test.test("two lists share a column, a short one taking only its items, and a spacer shares with a list") do
+    Test.test("two lists share a column, a short one taking only its items, the first one more on an odd count") do
       long = (0...50).map { |i| View.text("L#{i}") }
       short = [View.text("s0")]
       try Test.eq(lines(View.col([View.list(long, 0), View.list(long, 0)]), 3, 4), ["L0 ", "L1 ", "L0 ", "L1 "])
       try Test.eq(lines(View.col([View.list(short, 0), View.list(long, 0)]), 3, 4), ["s0 ", "L0 ", "L1 ", "L2 "])
+      Test.eq(lines(View.col([View.list(long, 0), View.list(long, 0)]), 3, 5), ["L0 ", "L1 ", "L2 ", "L0 ", "L1 "])
+    end,
+    Test.test("a list fills the free lines before the spacers, which share what it leaves, the first one more") do
+      long = (0...50).map { |i| View.text("L#{i}") }
+      short = [View.text("s0"), View.text("s1")]
+      try Test.eq(
+        lines(View.col([View.list(long, 0), View.spacer(), View.text("end")]), 3, 6),
+        ["L0 ", "L1 ", "L2 ", "L3 ", "L4 ", "end"],
+      )
+
+      try Test.eq(
+        lines(View.col([View.spacer(), View.list(short, 0), View.text("end")]), 3, 6),
+        ["   ", "   ", "   ", "s0 ", "s1 ", "end"],
+      )
+
       Test.eq(
-        lines(View.col([View.list(long, 0), View.spacer(), View.text("end")]), 3, 5),
-        ["L0 ", "L1 ", "   ", "   ", "end"],
+        lines(View.col([View.list(short, 0), View.spacer(), View.text("mid"), View.spacer(), View.text("end")]), 3, 9),
+        ["s0 ", "s1 ", "   ", "   ", "   ", "mid", "   ", "   ", "end"],
       )
     end,
     Test.test("a list in a row takes the width the others leave") do

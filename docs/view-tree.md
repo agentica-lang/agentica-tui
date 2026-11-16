@@ -23,8 +23,8 @@ end
   than the line is cut. `style` may be left out.
 - `row(children)`: side by side. Each child, in order, takes the width it needs of what is left, and the height of
   the row; spacers and children with a list share the width the others leave.
-- `col(children)`: one under another. Each child takes the whole width and the height it needs; spacers and lists
-  share the lines the others leave, a list up to one line per item.
+- `col(children)`: one under another. Each child takes the whole width and the height it needs. The lists share
+  the lines the others leave, each up to one line per item, and the spacers share what the lists leave.
 - `box(child, padding:, border:, style:)`: `padding` cells around the child (a negative padding is 0), a border
   (`Border.None`, the default, or `Border.Line`), and the box filled with `style`. The styles inside are drawn on
   `style` ([merge](styles.md)). Every option may be left out.

@@ -41,6 +41,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- In a `col`, the lists fill the free lines first and the spacers share what they leave (was an even share).
 - **Breaking:** the terminal by hand moves to `TUI.Raw`: `open`, `width`, `height`, `clear`, `set_cell`, `write`,
   `present`, `render`, `diff`, `program`, `set_cursor`, `hide_cursor`, `poll_event`, `peek_event`,
   `set_input_mode`, `set_output_mode`, `Screen`, `Grid` and `Glyph` (was `TUI.open` and so on); `TUI.run` is the
