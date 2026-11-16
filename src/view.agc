@@ -2,7 +2,8 @@
 ##
 ## A `Row` gives each child its own width and the height of the row; a `Col` gives each child the whole width and its
 ## own height. A `Spacer` takes an equal share of the room the others leave. Text wraps at spaces, and is cut where a
-## word is longer than the line; widths are terminal columns (`src/width.agc`). Nothing is drawn outside the screen.
+## word is longer than the line; a `Line` never wraps; widths are terminal columns (`src/width.agc`). Nothing is drawn
+## outside the screen.
 
 import St from "style"
 import Width from "width"
@@ -21,6 +22,12 @@ struct Frame
   style: St.Style
 end
 
+## Text in one style, a part of a `Line`.
+struct Span
+  text: String
+  style: St.Style
+end
+
 ## A part of the screen.
 enum Node
   ## Text, with its lines (`\n`) wrapped to the width it gets.
@@ -33,6 +40,10 @@ enum Node
   Box(Node, Frame)
   ## Free room in a `Row` or a `Col`.
   Spacer
+  ## Spans on one line, never wrapped: cut at the width, spaces kept, a newline drawn as a space.
+  Line(List[Span])
+  ## Items one line each, the selected one (by index) in the style, scrolled to keep it in view.
+  List(List[Node], Int, St.Style)
 end
 
 ## A cell to draw: `char` at column `x` and line `y`; a wide character also covers the cell after it.
@@ -60,6 +71,19 @@ end
 ## Free room in a row or a column.
 def spacer() -> Node = Node.Spacer
 
+## Spans on one line that never wraps: cut at the width, with leading spaces kept.
+def line(spans: List[Span]) -> Node = Node.Line(spans)
+
+## Text in `style`, a part of a `line`.
+def span(text: String, style: St.Style = St.Style()) -> Span = Span(text: text, style: style)
+
+## `items` one line each (a taller item shows its first line), with the item at `selected` in `focus` (reverse when
+## left out). When they do not all fit, the list scrolls to keep the selected item in the middle, or as near as the
+## ends allow. A `selected` outside the items marks none.
+def list(items: List[Node], selected: Int, focus: Optional[St.Style] = none) -> Node
+  Node.List(items, selected, focus.unwrap_or(FOCUS))
+end
+
 ## The cells of `node` on a screen of `width` by `height`, in drawing order.
 def layout(node: Node, width: Int, height: Int) -> List[Cell]
   draw(node, Area(x: 0, y: 0, width: width, height: height), St.Style(), [])
@@ -73,6 +97,8 @@ def wrap(text: String, width: Int) -> List[String]
 end
 
 private
+
+FOCUS = St.Style(reverse: true)
 
 struct Area
   x: Int
@@ -96,6 +122,8 @@ def draw(node: Node, area: Area, base: St.Style, cells: List[Cell]) -> List[Cell
     Node.Col(children) -> col_cells(children, area, base, cells)
     Node.Box(child, frame) -> box_cells(child, frame, area, St.merge(base, frame.style), cells)
     Node.Spacer -> cells
+    Node.Line(spans) -> line_cells(spans, area, base, cells)
+    Node.List(items, selected, focus) -> list_cells(items, selected, area, St.merge(base, focus), base, cells)
   end
 end
 
@@ -118,6 +146,10 @@ def measure(node: Node, width: Int) -> Size
       inner = measure(child, width - 2 * edge)
       Size(width: [inner.width + 2 * edge, width].min.unwrap!, height: inner.height + 2 * edge)
     Node.Spacer -> Size(width: 0, height: 0)
+    Node.Line(spans) ->
+      Size(width: [spans.map { |span| Width.text(flat(span.text)) }.sum, width].min.unwrap!, height: 1)
+    Node.List(items, _, _) ->
+      Size(width: items.map { |item| measure(item, width).width }.max.unwrap_or(0), height: items.size)
   end
 end
 
@@ -263,6 +295,56 @@ def text_cells(text: String, area: Area, style: St.Style, into: List[Cell]) -> L
 
   cells
 end
+
+def line_cells(spans: List[Span], area: Area, base: St.Style, into: List[Cell]) -> List[Cell]
+  cells = into
+  x = area.x
+  for span in spans
+    style = St.merge(base, span.style)
+    for char in flat(span.text).split("")
+      columns = Width.char(char)
+      next if columns == 0
+      return cells if x + columns > area.x + area.width
+
+      cells = cells.push(Cell(x: x, y: area.y, char: char, style: style))
+      x = x + columns
+    end
+  end
+
+  cells
+end
+
+def list_cells(
+  items: List[Node],
+  selected: Int,
+  area: Area,
+  focused: St.Style,
+  base: St.Style,
+  into: List[Cell],
+) -> List[Cell]
+  cells = into
+  first = top(items.size, selected, area.height)
+  last = [first + area.height, items.size].min.unwrap!
+  for i in first...last
+    part = area.with(y: area.y + i - first, height: 1)
+    if i == selected
+      cells = box_cells(items[i], Frame(style: St.Style()), part, focused, cells)
+    else
+      cells = draw(items[i], part, base, cells)
+    end
+  end
+
+  cells
+end
+
+# The first item a list of `size` items shows in `rows` lines.
+def top(size: Int, selected: Int, rows: Int) -> Int
+  return 0 if size <= rows
+
+  [[selected - rows / 2, 0].max.unwrap!, size - rows].min.unwrap!
+end
+
+def flat(text: String) -> String = text.replace("\n", " ")
 
 def wrap_line(line: String, width: Int) -> List[String]
   out: List[String] = []

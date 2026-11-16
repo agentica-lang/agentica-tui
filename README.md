@@ -52,7 +52,7 @@ end
 ## Docs
 
 - [Getting started](docs/getting-started.md): install, a first program, run it.
-- [View tree](docs/view-tree.md): `text`, `row`, `col`, `box`, `spacer`, `list`, `table`, layout and widths.
+- [View tree](docs/view-tree.md): `text`, `row`, `col`, `box`, `spacer`, `line`, `list`, `table`, layout and widths.
 - [Elm loop](docs/elm-loop.md): `TUI.run`, `App`, `Step`, commands and subscriptions.
 - [Events](docs/events.md): keys, mouse, paste and resize.
 - [Styles](docs/styles.md): colors, attributes and `merge`.

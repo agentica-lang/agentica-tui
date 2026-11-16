@@ -6,8 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- `TUI.list(items, selected, rows)`, a list that marks and scrolls to its selected item, and `TUI.table(cells)`, the
-  aligned lines of a table.
+- `TUI.line(spans)`, one line of styled `TUI.span`s that never wraps; `TUI.list(items, selected)`, a list that marks
+  its selected item and scrolls to it in the room it gets; `TUI.table(cells)`, the aligned lines of a table. A
+  `case` over `Node` needs the variants `Line` and `List`.
 - `TUI.Raw.program` puts the screen's input and output modes back when it ends.
 - `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
   frame no longer clears the screen. `TUI.diff` compares two grids.

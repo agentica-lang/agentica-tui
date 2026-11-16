@@ -11,7 +11,7 @@ src/event.agc          Event, Key, Mouse, Mods, InputMode; decodes the fields of
 src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute values (pure)
 src/view.agc           the view tree and its layout into cells (pure)
 src/grid.agc           Grid, a screen as a value, and diff (pure)
-src/widgets.agc        list and table, views built from the tree (pure)
+src/widgets.agc        table, the lines of a table built from the tree (pure)
 src/program.agc        the Elm loop: App, Step, Cmd, Sub, run and program
 native/termbox2/       termbox2.h vendored at a tag (VERSION has the tag, commit and sha256), its MIT LICENSE
 native/tui.c           termbox2 plus the tui_* functions the bindings call: one lock around every termbox2 call,

@@ -61,7 +61,10 @@ export View.spacer
 export View.Cell
 export View.layout
 export View.wrap
-export Wg.list
+export View.Span
+export View.line
+export View.span
+export View.list
 export Wg.table
 
 ## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.
