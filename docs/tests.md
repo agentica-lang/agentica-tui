@@ -29,14 +29,23 @@ end
 ## Testing a program
 
 `TUI.Testing.fake(width, height)` is a terminal with no screen: run the program on it in a task, send it events, and
-read back the calls the program made and the rows they draw.
+read back what it shows.
 
 ```ruby
 def test_q_quits() -> Result[Void]
   fake = TUI.Testing.fake(20, 1)
   runner = Task.spawn do TUI.Raw.program(TUI.Testing.backend(fake), app()) end
+  try TUI.Testing.wait_for(fake, ->(rows: List[String]) { rows[0] == "0 keys, q quits" })
   try fake.events.send(TUI.Event.Char("q", TUI.Mods()), 1000)
   try Task.await(runner)
-  Test.eq(TUI.Testing.rows(fake, TUI.Testing.calls(fake)), ["0 keys, q quits"])
+  Test.eq(TUI.Testing.screen(fake), ["0 keys, q quits"])
 end
 ```
+
+- `screen(fake)`: the text of each row now; `wait_for(fake, done, wait_ms)` waits until `done` takes the rows.
+- `style_at(fake, x, y)` and `cursor(fake)`: the style of a cell and where the cursor shows (none when hidden).
+- `resize(fake, width, height)`: the new size and its `Resize` event.
+- `screen`, `style_at` and `cursor` show the terminal as the last present left it.
+- `calls(fake, wait_ms)`: the calls since the last read, in order, and `rows(fake, calls)` the rows they draw. The
+  fake keeps 65536 calls that nobody read; past that, a call is an error.
+- A call is read once: use either the screen helpers or `calls` in a test, not both.

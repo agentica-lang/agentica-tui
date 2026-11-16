@@ -31,13 +31,15 @@ struct Step[M, Msg]
 end
 
 ## A program: the first model, how a message changes it, what it shows and what it listens to, the commands to
-## run at the start, and the terminal modes: how Escape is read, whether mouse events come, and how colors are sent.
+## run at the start, where the terminal cursor shows (no `cursor`, or one that gives none, hides it), and the
+## terminal modes: how Escape is read, whether mouse events come, and how colors are sent.
 struct App[M, Msg]
   model: M
   update: Fn[M, Msg, Step[M, Msg]]
   view: Fn[M, View.Node]
   subscriptions: Fn[M, List[Sub[Msg]]]
   cmds: List[Cmd[Msg]] = []
+  cursor: Optional[Fn[M, Optional[Bd.Cursor]]] = none
   input: Ev.InputMode = Ev.InputMode.Esc
   mouse: Bool = false
   output: St.OutputMode = St.OutputMode.Normal
@@ -97,7 +99,7 @@ def loop[M, Msg](backend: Bd.Backend, app: App[M, Msg], inbox: Channel[Input[Msg
     return ok(step.model) if step.cmds.any?(&quit?)
 
     start(step.cmds, inbox)
-    drawn = try Bd.render(backend, app.view.call(step.model), shown)
+    drawn = try Bd.render(backend, app.view.call(step.model), shown, cursor_of(app, step.model))
     shown = some(drawn)
     subs = app.subscriptions.call(step.model)
     dues = scheduled(subs, dues, Time.monotonic_ms())
@@ -118,6 +120,10 @@ def loop[M, Msg](backend: Bd.Backend, app: App[M, Msg], inbox: Channel[Input[Msg
   end
 
   ok(step.model)
+end
+
+def cursor_of[M, Msg](app: App[M, Msg], model: M) -> Optional[Optional[Bd.Cursor]]
+  app.cursor.map { |place| place.call(model) }
 end
 
 def start[Msg](cmds: List[Cmd[Msg]], inbox: Channel[Input[Msg]]) -> Void

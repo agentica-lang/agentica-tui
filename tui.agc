@@ -44,6 +44,7 @@ export Pg.Cmd
 export Pg.Sub
 export Bd.Backend
 export Bd.Modes
+export Bd.Cursor
 export Ev.Event
 export Ev.Key
 export Ev.Mouse
@@ -85,11 +86,32 @@ module Testing
 
   def backend(fake: Fake) -> Bd.Backend = Fk.backend(fake)
 
-  ## The calls made since the last time, in order.
-  def calls(fake: Fake) -> List[Call] = Fk.calls(fake)
+  ## The calls made since the last time, in order, after waiting up to `wait_ms` for one when none waits. `screen`,
+  ## `wait_for`, `cursor` and `style_at` read them too.
+  def calls(fake: Fake, wait_ms: Int = 0) -> List[Call] = Fk.calls(fake, wait_ms)
 
-  ## The text of each row after `calls`, from the last clear.
+  ## The text of each row that `calls` draw, from the last clear in them, presented or not; a wide character's covered
+  ## cell adds nothing.
   def rows(fake: Fake, calls: List[Call]) -> List[String] = Fk.rows(fake, calls)
+
+  ## The terminal takes a new size and sends its `Resize` event.
+  def resize(fake: Fake, width: Int, height: Int) -> Result[Void] = Fk.resize(fake, width, height)
+
+  ## The text of each row the terminal shows now, as the last present left it (it reads the new calls, as `calls`
+  ## does).
+  def screen(fake: Fake) -> List[String] = Fk.screen(fake)
+
+  ## Waits up to `wait_ms` for the terminal to show rows that `done` takes, and gives them; an error with the rows it
+  ## shows when the time runs out.
+  def wait_for(fake: Fake, done: Fn[List[String], Bool], wait_ms: Int = 5000) -> Result[List[String]]
+    Fk.wait_for(fake, done, wait_ms)
+  end
+
+  ## The style of the cell at column x, row y the terminal shows now; none outside the screen.
+  def style_at(fake: Fake, x: Int, y: Int) -> Optional[St.Style] = Fk.style_at(fake, x, y)
+
+  ## Where the cursor shows now; none when it is hidden.
+  def cursor(fake: Fake) -> Optional[Bd.Cursor] = Fk.cursor(fake)
 end
 
 ## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.

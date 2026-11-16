@@ -7,6 +7,8 @@
 - `view(model)`: the [view tree](view-tree.md) of a model;
 - `subscriptions(model)`: what the loop listens to while the model is this one;
 - `cmds`: the commands to run at the start (none when left out);
+- `cursor`: `some(->(model) { ... })` gives where the terminal cursor shows, a `TUI.Cursor(x:, y:)`, or none to
+  hide it; left out, the cursor stays hidden;
 - `input`, `mouse`, `output`: how Escape is read (`InputMode.Esc` when left out), whether mouse events come (`false`)
   and how colors are sent (`OutputMode.Normal`); see [Events](events.md) and [Styles](styles.md).
 

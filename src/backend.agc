@@ -14,6 +14,12 @@ struct Modes
   output: St.OutputMode = St.OutputMode.Normal
 end
 
+## Where the terminal cursor shows: column x, row y.
+struct Cursor
+  x: Int
+  y: Int
+end
+
 struct Backend
   width: Fn[Int]
   height: Fn[Int]
@@ -32,8 +38,14 @@ struct Backend
 end
 
 ## Draws `node` over the whole screen and shows it. Only the cells that differ from `last` (what the screen shows) are
-## written; with no `last`, the screen is cleared first. Gives what the screen shows now, for the next call.
-def render(backend: Backend, node: View.Node, last: Optional[Gr.Grid] = none) -> Result[Gr.Grid]
+## written; with no `last`, the screen is cleared first. With `cursor`, the cursor shows there, or is hidden when it
+## holds none; with no `cursor` it stays as it was. Gives what the screen shows now, for the next call.
+def render(
+  backend: Backend,
+  node: View.Node,
+  last: Optional[Gr.Grid] = none,
+  cursor: Optional[Optional[Cursor]] = none,
+) -> Result[Gr.Grid]
   # The size is read after the clear: termbox2 takes a new size then.
   shown = case last
     some(grid) -> grid
@@ -42,11 +54,22 @@ def render(backend: Backend, node: View.Node, last: Optional[Gr.Grid] = none) ->
 
   next = Gr.of(node, backend.width.call(), backend.height.call())
   try backend.draw.call(Gr.diff(shown, next))
+  if cursor.some?
+    try placed(backend, cursor.unwrap!)
+  end
+
   try backend.present.call()
   ok(next)
 end
 
 private
+
+def placed(backend: Backend, cursor: Optional[Cursor]) -> Result[Void]
+  case cursor
+    some(at) -> backend.set_cursor.call(at.x, at.y)
+    none -> backend.hide_cursor.call()
+  end
+end
 
 def cleared(backend: Backend) -> Result[Gr.Grid]
   try backend.clear.call()
