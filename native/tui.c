@@ -184,24 +184,42 @@ static int extract_paste(struct tb_event *event, size_t *consumed) {
     return TB_ERR_NEED_MORE;
 }
 
+/* A CSI sequence longer than this with no final byte is dropped. */
+#define TUI_CSI_MAX 32
+
 /* The end of the CSI sequence at the start of `in` (after its final byte):
- * 1 when it is whole, 0 when more bytes may come, -1 when it is no CSI. */
+ * 1 when it is whole, 0 when more bytes may come, -1 when a byte that has no
+ * place in a CSI cuts it at `end`. */
 static int csi_end(const struct bytebuf_t *in, size_t *end) {
-    size_t i = 2;
-    while (i < in->len && in->buf[i] >= 0x30 && in->buf[i] <= 0x3f) {
-        i++;
+    for (size_t i = 2; i < in->len; i++) {
+        unsigned char c = (unsigned char)in->buf[i];
+        if (c >= 0x40 && c <= 0x7e) {
+            *end = i + 1;
+            return 1;
+        }
+        if (c < 0x20 || c > 0x3f) {
+            *end = i;
+            return -1;
+        }
     }
-    while (i < in->len && in->buf[i] >= 0x20 && in->buf[i] <= 0x2f) {
-        i++;
+    *end = in->len;
+    return 0;
+}
+
+static int drop(struct tb_event *event, size_t *consumed, size_t end) {
+    event->type = TUI_EVENT_NONE;
+    event->mod = 0;
+    event->key = 0;
+    event->ch = 0;
+    *consumed = end;
+    return TB_OK;
+}
+
+static int clamp(int value, int size) {
+    if (value >= size) {
+        value = size - 1;
     }
-    if (i == in->len) {
-        return 0;
-    }
-    if (in->buf[i] < 0x40 || in->buf[i] > 0x7e) {
-        return -1;
-    }
-    *end = i + 1;
-    return 1;
+    return value < 0 ? 0 : value;
 }
 
 static int read_number(const char *buf, size_t *at, size_t end, unsigned *n) {
@@ -224,18 +242,23 @@ static int read_separator(const char *buf, size_t *at, size_t end) {
 
 /* termbox2's own reader of SGR (1006) and urxvt (1015) mouse reports drops
  * the rest of the input and reads any unknown CSI as one, so this reads them
- * first, strictly: `ESC [ < b ; x ; y` and M or m, or `ESC [ b ; x ; y M`. A
- * whole CSI that is neither a report nor a key termbox2 knows is dropped
- * (an event of kind TUI_EVENT_NONE). X10 reports (`ESC [ M`) stay with
- * termbox2. */
+ * first, strictly: `ESC [ < b ; x ; y` and M or m, or `ESC [ b ; x ; y M`,
+ * with the cell clamped to the screen. A report split across reads waits for
+ * its end, up to TUI_CSI_MAX bytes. A CSI that is neither a report nor a key
+ * termbox2 knows is dropped (an event of kind TUI_EVENT_NONE). X10 reports
+ * (`ESC [ M`) stay with termbox2. */
 static int extract_mouse(struct tb_event *event, size_t *consumed) {
     struct bytebuf_t *in = &global.in;
     size_t end = 0;
     if (in->len < 3 || in->buf[0] != '\x1b' || in->buf[1] != '[' || in->buf[2] == 'M') {
         return TB_ERR;
     }
-    if (csi_end(in, &end) != 1) {
-        return TB_ERR;
+    int whole = csi_end(in, &end);
+    if (whole == 0 && in->len < TUI_CSI_MAX) {
+        return TB_ERR_NEED_MORE;
+    }
+    if (whole != 1) {
+        return drop(event, consumed, end);
     }
     struct cap_trie_t *node = NULL;
     size_t depth = 0;
@@ -250,14 +273,12 @@ static int extract_mouse(struct tb_event *event, size_t *consumed) {
         read_number(in->buf, &at, end, &x) && read_separator(in->buf, &at, end) &&
         read_number(in->buf, &at, end, &y) && at == end - 1 && x > 0 && y > 0 &&
         (final == 'M' || (sgr && final == 'm')) && (sgr || b >= 0x20);
+    if (!report) {
+        return drop(event, consumed, end);
+    }
     event->mod = 0;
     event->ch = 0;
     *consumed = end;
-    if (!report) {
-        event->type = TUI_EVENT_NONE;
-        event->key = 0;
-        return TB_OK;
-    }
     if (!sgr) {
         b -= 0x20;
     }
@@ -274,8 +295,8 @@ static int extract_mouse(struct tb_event *event, size_t *consumed) {
         event->mod |= TB_MOD_MOTION;
     }
     event->type = TB_EVENT_MOUSE;
-    event->x = (int32_t)x - 1;
-    event->y = (int32_t)y - 1;
+    event->x = clamp((int)x - 1, global.width);
+    event->y = clamp((int)y - 1, global.height);
     return TB_OK;
 }
 
