@@ -35,7 +35,8 @@ extern "termbox2"
   def tui_set_input_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_set_output_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_strerror(code: C.Int32) -> C.String
-  def tui_paste(screen: Screen, out length: C.Int64) -> C.Pointer
+  def tui_paste_length(screen: Screen) -> C.Int64
+  def tui_paste_copy(screen: Screen, dest: C.Pointer, room: C.Int64) -> C.Int64
 end
 
 ## What `update` gives in `program`: the next model, or the end of the loop.
@@ -222,8 +223,11 @@ end
 def with_paste(screen: Screen, raw: Ev.Raw) -> Ev.Raw
   return raw if raw.kind != Ev.KIND_PASTE
 
-  pasted = tui_paste(screen)
-  raw.with(text: Native.get_string(pasted.result, 0, pasted.length))
+  room = tui_paste_length(screen)
+  Native.memory_pointer([room, 1].max.unwrap!) do |buffer|
+    copied = tui_paste_copy(screen, buffer, room)
+    raw.with(text: Native.get_string(buffer, 0, copied))
+  end
 end
 
 def check(what: String, code: Int) -> Result[Void]

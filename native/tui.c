@@ -36,13 +36,23 @@ static int tui_screen;
 
 /* Bracketed paste: the terminal sends a paste between these, and
  * tui_wait_event gives it as one event of kind TUI_EVENT_PASTE, with its text
- * in tui_paste_text (under tui_lock, kept until the next paste). */
+ * in tui_paste_text (under tui_lock, kept until the next paste). A paste with
+ * no end mark ends at TUI_PASTE_MAX bytes or after TUI_PASTE_IDLE_MS with no
+ * new byte, with what came so far. */
 #define TUI_EVENT_PASTE 100
+#define TUI_PASTE_MAX (1024 * 1024)
+#define TUI_PASTE_IDLE_MS 1000
 static const char tui_paste_start[] = "\x1b[200~";
 static const char tui_paste_end[] = "\x1b[201~";
 #define TUI_PASTE_MARK (sizeof(tui_paste_start) - 1)
 static char *tui_paste_text;
 static size_t tui_paste_len;
+/* The paste that has no end mark yet: the input length the scan reached, and
+ * when that length last grew. */
+static size_t tui_paste_scanned;
+static long long tui_paste_grew_ms;
+
+static long long now_ms(void);
 
 /* The LC_CTYPE that tui_init replaced, put back by tui_shutdown. */
 static char tui_saved_ctype[64];
@@ -75,6 +85,25 @@ static void send_now(const char *sequence) {
 /* termbox2's hook before it reads an escape sequence: a whole paste, from its
  * start mark to its end mark, is one event, so that no key inside it is read
  * as a key. Called under tui_lock (from tb_peek_event). */
+static int take_paste(struct tb_event *event, size_t *consumed, size_t len, size_t used) {
+    struct bytebuf_t *in = &global.in;
+    char *text = realloc(tui_paste_text, len + 1);
+    if (!text) {
+        return TB_ERR_MEM;
+    }
+    memcpy(text, in->buf + TUI_PASTE_MARK, len);
+    text[len] = '\0';
+    tui_paste_text = text;
+    tui_paste_len = len;
+    tui_paste_scanned = 0;
+    event->type = TUI_EVENT_PASTE;
+    event->mod = 0;
+    event->key = 0;
+    event->ch = 0;
+    *consumed = used;
+    return TB_OK;
+}
+
 static int extract_paste(struct tb_event *event, size_t *consumed) {
     struct bytebuf_t *in = &global.in;
     size_t mark = TUI_PASTE_MARK;
@@ -84,24 +113,24 @@ static int extract_paste(struct tb_event *event, size_t *consumed) {
     if (memcmp(in->buf, tui_paste_start, mark) != 0) {
         return TB_ERR;
     }
-    for (size_t at = mark; at + mark <= in->len; at++) {
+    /* Each byte is scanned once: an end mark that starts before
+     * tui_paste_scanned - mark + 1 would have been found already. */
+    size_t from = mark;
+    if (tui_paste_scanned > mark && tui_paste_scanned - mark + 1 > from) {
+        from = tui_paste_scanned - mark + 1;
+    }
+    for (size_t at = from; at + mark <= in->len; at++) {
         if (memcmp(in->buf + at, tui_paste_end, mark) == 0) {
-            size_t len = at - mark;
-            char *text = realloc(tui_paste_text, len + 1);
-            if (!text) {
-                return TB_ERR_MEM;
-            }
-            memcpy(text, in->buf + mark, len);
-            text[len] = '\0';
-            tui_paste_text = text;
-            tui_paste_len = len;
-            event->type = TUI_EVENT_PASTE;
-            event->mod = 0;
-            event->key = 0;
-            event->ch = 0;
-            *consumed = at + mark;
-            return TB_OK;
+            return take_paste(event, consumed, at - mark, at + mark);
         }
+    }
+    long long now = now_ms();
+    if (in->len != tui_paste_scanned) {
+        tui_paste_scanned = in->len;
+        tui_paste_grew_ms = now;
+    }
+    if (in->len - mark >= TUI_PASTE_MAX || now - tui_paste_grew_ms >= TUI_PASTE_IDLE_MS) {
+        return take_paste(event, consumed, in->len - mark, in->len);
     }
     return TB_ERR_NEED_MORE;
 }
@@ -141,6 +170,7 @@ void tui_shutdown(void *screen) {
         free(tui_paste_text);
         tui_paste_text = NULL;
         tui_paste_len = 0;
+        tui_paste_scanned = 0;
         setlocale(LC_CTYPE, tui_saved_ctype);
     }
     pthread_mutex_unlock(&tui_lock);
@@ -238,14 +268,26 @@ static int peek_now(struct tb_event *event, int *err) {
     return rv;
 }
 
-/* The text of the last paste event and its length in bytes. */
-const char *tui_paste(void *screen, int64_t *length) {
+/* The length in bytes of the text of the last paste event. */
+int64_t tui_paste_length(void *screen) {
     (void)screen;
     pthread_mutex_lock(&tui_lock);
-    const char *text = tui_paste_text ? tui_paste_text : "";
-    *length = (int64_t)tui_paste_len;
+    int64_t len = (int64_t)tui_paste_len;
     pthread_mutex_unlock(&tui_lock);
-    return text;
+    return len;
+}
+
+/* Copies at most `room` bytes of the text of the last paste event into
+ * `dest`, under the lock; gives the bytes copied. */
+int64_t tui_paste_copy(void *screen, char *dest, int64_t room) {
+    (void)screen;
+    pthread_mutex_lock(&tui_lock);
+    size_t len = tui_paste_len < (size_t)room ? tui_paste_len : (size_t)room;
+    if (len > 0) {
+        memcpy(dest, tui_paste_text, len);
+    }
+    pthread_mutex_unlock(&tui_lock);
+    return (int64_t)len;
 }
 
 /* Without the lock, waits up to `timeout_ms` for the tty or the resize pipe

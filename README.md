@@ -70,7 +70,10 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
 - A call with a screen after it is closed stops the task with `RUNTIME-NATIVE-CLOSED`.
 - `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`,
   `Paste(text)`. The screen turns on bracketed paste (`ESC [ ? 2004 h`, off at the close), so pasted text comes as one
-  `Paste` with `\n` line ends, and the keys in it never come as `Key` or `Char` events.
+  `Paste` with `\n` line ends, and the keys in it never come as `Key` or `Char` events. A paste with no end mark
+  ends after 1 MiB or 1 s with no new byte, with what came so far; what follows then comes as keys, and so does
+  text after a stray end mark, so pasted text can still inject keys: a `Paste` must never confirm anything, and a
+  confirmation should not rest on keys alone.
 - `Key`: `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`,
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
 - `Style(fg:, bg:, bold:, dim:, italic:, underline:, reverse:, attrs:)`, every field optional, with `Color`
