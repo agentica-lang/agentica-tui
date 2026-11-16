@@ -152,6 +152,18 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 0)
         self.assertIn(b"bye", term.output[term.output.rindex(LEAVE_SCREEN) :])
 
+    def test_the_view_example_renders_a_tree(self) -> None:
+        term = Terminal(ROOT / "examples" / "view.agc")
+        self.addCleanup(term.close)
+        term.wait_for_row(0, "┌" + "─" * 78 + "┐")
+        term.wait_for_row(3, "│ count: 0")
+        term.wait_for_row(23, " " * 58 + "+ and - count, q quits")
+        term.send(b"+")
+        term.wait_for_row(3, "│ count: 1")
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

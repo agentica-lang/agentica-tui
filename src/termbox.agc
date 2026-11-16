@@ -6,6 +6,7 @@
 
 import Ev from "event"
 import St from "style"
+import View from "view"
 
 extern "termbox2"
   ## The open terminal. Closing it (`open` does) restores the terminal; so does the end of the program, a crash too.
@@ -84,6 +85,16 @@ def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Sty
   printed = tui_print(screen, x, y, fg, bg, text)
   try check("write", printed.result)
   ok(printed.width)
+end
+
+## Clears the screen, draws `node` over all of it (`View.layout`) and shows it.
+def render(screen: Screen, node: View.Node) -> Result[Void]
+  try clear(screen)
+  for cell in View.layout(node, width(screen), height(screen))
+    try set_cell(screen, cell.x, cell.y, cell.char, cell.style)
+  end
+
+  present(screen)
 end
 
 ## Shows the back buffer on the terminal: nothing drawn appears before this.

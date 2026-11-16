@@ -77,6 +77,31 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
   `Invisible`, and the five above). `merge(base, over)` puts `over` on top: its colors that are not `Default`, and
   the attributes of both.
 
+## View tree
+
+Instead of placing text by hand, build a tree of `Node` values and draw it with `TUI.render(screen, node)`, which
+clears the screen, draws the tree over all of it and presents it:
+
+```ruby
+def view(count: Int) -> TUI.Node
+  title = TUI.Node.Text("Counter", TUI.Style(bold: true))
+  value = TUI.Node.Text("count: #{count}", TUI.Style(fg: TUI.Color.Green))
+  box = TUI.Node.Box(TUI.Node.Col([title, value]), 1, true, TUI.Style(fg: TUI.Color.Cyan))
+  TUI.Node.Col([box, TUI.Node.Spacer, TUI.Node.Row([TUI.Node.Spacer, TUI.Node.Text("q quits", TUI.Style())])])
+end
+```
+
+- `Text(text, style)`: the lines of `text` (`\n`), wrapped at spaces to the width it gets; a longer word is cut.
+- `Row(children)`: side by side; each child takes the width it needs of what is left, and the height of the row.
+- `Col(children)`: one under another; each child takes the whole width and the height it needs.
+- `Box(child, padding, border, style)`: `padding` cells around the child and a line border when `border` is true,
+  filled with `style`; the styles inside are drawn on it (`merge`).
+- `Spacer`: an equal share of the room the other children of a `Row` or `Col` leave.
+
+Widths are terminal columns (glibc's `wcwidth`, `src/width_table.agc`, made by `scripts/width_table.py`), so wide
+characters take two. Nothing is drawn outside the screen. `TUI.layout(node, width, height)` gives the cells without
+a terminal, for tests, and `TUI.wrap(text, width)` the wrapped lines. `examples/view.agc` is a counter.
+
 ## Tests
 
 ```sh

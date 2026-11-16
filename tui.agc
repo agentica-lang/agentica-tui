@@ -21,6 +21,7 @@
 import Ev from "src/event"
 import St from "src/style"
 import Tb from "src/termbox"
+import View from "src/view"
 
 export Tb.Screen
 export Tb.open
@@ -30,6 +31,7 @@ export Tb.clear
 export Tb.set_cell
 export Tb.write
 export Tb.present
+export Tb.render
 export Tb.set_cursor
 export Tb.hide_cursor
 export Tb.poll_event
@@ -46,3 +48,7 @@ export St.Attr
 export St.Style
 export St.merge
 export St.OutputMode
+export View.Node
+export View.Cell
+export View.layout
+export View.wrap
