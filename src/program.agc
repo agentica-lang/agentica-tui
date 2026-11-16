@@ -16,7 +16,7 @@ end
 
 ## What `program` listens to while `subscriptions` gives it.
 enum Sub[Msg]
-  ## The message every so many milliseconds (1 or more).
+  ## The message every so many milliseconds (10 or more; a shorter period counts as 10).
   Tick(Int, Msg)
   ## Each terminal event (keys, mouse, paste, resize) as a message.
   Events(Fn[Ev.Event, Msg])
@@ -38,13 +38,20 @@ struct App[M, Msg]
   cmds: List[Cmd[Msg]] = []
 end
 
-## Runs `app` on the screen until a command is `Cmd.Quit`, and gives the last model. After each change it draws
-## `view(model)`. Gives an error when the terminal fails or a `Cmd.Run` function stops with a runtime error.
+## Opens the terminal, runs `app` on it with `program` and closes it. Gives the last model, or the error once the
+## terminal is restored.
+def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(screen, app) })
+
+## Runs `app` on an open screen until a command is `Cmd.Quit`, and gives the last model. After the messages that
+## came together it draws `view(model)`. Gives an error when the terminal fails or `update`, `view`,
+## `subscriptions` or a `Cmd.Run` function stops with a runtime error. A key typed after the quit may be lost.
 def program[M, Msg](screen: Tb.Screen, app: App[M, Msg]) -> Result[M]
   inbox: Channel[Input[Msg]] = Channel.new(INBOX)
   stop: Channel[Bool] = Channel.new(1)
   reader = Task.spawn do read_events(screen, inbox, stop) end
-  result = run(screen, app, inbox)
+  # The loop runs in a task of its own so that a crash in the app's functions comes back as an error and the
+  # reader still stops.
+  result = Task.await(Task.spawn do loop(screen, app, inbox) end)
   # Not a cancel: a cancelled task's wait may still run in termbox2 after the await, take a key from the caller and
   # hold the screen open.
   stop.close
@@ -59,6 +66,8 @@ INBOX = 1024
 SEND_MS = 60_000
 # How long the reader waits for an event before it checks that the loop still runs.
 READ_MS = 50
+# The shortest tick period.
+MIN_TICK_MS = 10
 # How long to wait for input with no tick to keep.
 IDLE_MS = 60_000
 
@@ -66,10 +75,9 @@ enum Input[Msg]
   Event(Ev.Event)
   App(Msg)
   Failed(String)
-  Due
 end
 
-def run[M, Msg](screen: Tb.Screen, app: App[M, Msg], inbox: Channel[Input[Msg]]) -> Result[M]
+def loop[M, Msg](screen: Tb.Screen, app: App[M, Msg], inbox: Channel[Input[Msg]]) -> Result[M]
   step = Step(model: app.model, cmds: app.cmds)
   shown: Optional[Gr.Grid] = none
   # When each tick period is due next, by period.
@@ -82,15 +90,19 @@ def run[M, Msg](screen: Tb.Screen, app: App[M, Msg], inbox: Channel[Input[Msg]])
     shown = some(drawn)
     subs = app.subscriptions.call(step.model)
     dues = scheduled(subs, dues, Time.monotonic_ms())
-    input = next_input(inbox, dues, Time.monotonic_ms())
-    case input
-      Input.Failed(message) -> return error(message)
-      Input.Event(Ev.Event.Resize(_, _)) -> shown = none
-      _ -> shown = shown
+    inputs = pending(inbox, dues, Time.monotonic_ms())
+    for input in inputs
+      case input
+        Input.Failed(message) -> return error(message)
+        Input.Event(Ev.Event.Resize(_, _)) -> shown = none
+        _ -> next
+      end
     end
 
+    # The due ticks go with the inputs, and only they move on: a tick is never skipped while input comes.
     now = Time.monotonic_ms()
-    step = updated(app.update, step.model, messages(input, subs, dues, now))
+    msgs = inputs.flat_map { |input| messages(input, subs) } + subs.flat_map { |sub| tick_message(sub, dues, now) }
+    step = updated(app.update, step.model, msgs)
     dues = advanced(dues, now)
   end
 
@@ -132,24 +144,27 @@ def read_events[Msg](screen: Tb.Screen, inbox: Channel[Input[Msg]], stop: Channe
   end
 end
 
-# The input that comes before the first tick is due, or `Due`.
-def next_input[Msg](inbox: Channel[Input[Msg]], dues: Map[Int, Int], now: Int) -> Input[Msg]
+# The inputs that wait, or the first that comes before the next tick is due (none when it comes first).
+def pending[Msg](inbox: Channel[Input[Msg]], dues: Map[Int, Int], now: Int) -> List[Input[Msg]]
   wait = IDLE_MS
   for due in dues.values
     wait = [wait, due - now].min.unwrap!
   end
 
-  case inbox.recv([wait, 0].max.unwrap!)
-    ok(input) -> input
-    error(_) -> Input.Due
+  inputs: List[Input[Msg]] = []
+  got = inbox.recv([wait, 0].max.unwrap!)
+  while got.ok? and inputs.size < INBOX
+    inputs = inputs.push(got.unwrap!)
+    got = inbox.recv(0)
   end
+
+  inputs
 end
 
-def messages[Msg](input: Input[Msg], subs: List[Sub[Msg]], dues: Map[Int, Int], now: Int) -> List[Msg]
+def messages[Msg](input: Input[Msg], subs: List[Sub[Msg]]) -> List[Msg]
   case input
     Input.App(msg) -> [msg]
     Input.Event(event) -> subs.flat_map { |sub| event_message(sub, event) }
-    Input.Due -> subs.flat_map { |sub| tick_message(sub, dues, now) }
     Input.Failed(_) -> []
   end
 end
@@ -218,4 +233,4 @@ end
 
 def due?(dues: Map[Int, Int], ms: Int, now: Int) -> Bool = dues.get(ms).map { |due| due <= now }.unwrap_or(false)
 
-def period(ms: Int) -> Int = [ms, 1].max.unwrap!
+def period(ms: Int) -> Int = [ms, MIN_TICK_MS].max.unwrap!

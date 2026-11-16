@@ -1,6 +1,6 @@
 # Elm loop
 
-`TUI.program(screen, app)` runs a `TUI.App`:
+`TUI.run(app)` opens the terminal, runs a `TUI.App` and restores the terminal:
 
 - `model`: the first model, any type;
 - `update(model, msg)`: gives a `TUI.Step` with the next model and the commands to run;
@@ -8,8 +8,11 @@
 - `subscriptions(model)`: what the loop listens to while the model is this one;
 - `cmds`: the commands to run at the start (none when left out).
 
-The messages are your own type, often an enum. After each message the loop draws `view(model)`, writing only the
-cells that changed. It gives the last model when a command is `Cmd.Quit`.
+The messages are your own type, often an enum. The loop takes every message that is waiting, gives each to
+`update`, then draws `view(model)` once, writing only the cells that changed. It gives the last model when a command
+is `Cmd.Quit`; a key typed after that may be lost. A runtime error in `update`, `view` or `subscriptions` ends the
+loop with that error, given once the terminal is restored. `TUI.program(screen, app)` is the same loop on a screen
+that is already open.
 
 ## Commands
 
@@ -20,8 +23,9 @@ cells that changed. It gives the last model when a command is `Cmd.Quit`.
 ## Subscriptions
 
 - `Sub.Events(message)`: each [event](events.md) (keys, mouse, paste, resize) as `message(event)`.
-- `Sub.Tick(ms, msg)`: `msg` every `ms` milliseconds. The period starts when the subscription first appears, and
-  stops when `subscriptions` no longer gives it.
+- `Sub.Tick(ms, msg)`: `msg` every `ms` milliseconds (10 or more; less counts as 10). The period starts when the
+  subscription first appears, and stops when `subscriptions` no longer gives it. A tick that falls due while
+  messages come goes with them.
 
 ```ruby
 import TUI from "pkg/tui/tui"
@@ -60,7 +64,7 @@ def subscriptions(_todo: Todo) -> List[TUI.Sub[Msg]] = [TUI.Sub.Events(->(event)
 
 def main() -> Void
   app = TUI.App(model: Todo(), update: &update, view: &view, subscriptions: &subscriptions)
-  case TUI.open(->(screen) { TUI.program(screen, app) })
+  case TUI.run(app)
     ok(todo) -> puts("#{todo.items.size} items")
     error(e) -> IO.warn(e.message)
   end

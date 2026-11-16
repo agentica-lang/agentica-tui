@@ -34,6 +34,7 @@ export Tb.set_cell
 export Tb.write
 export Tb.present
 export Tb.render
+export Pg.run
 export Pg.program
 export Pg.App
 export Pg.Step

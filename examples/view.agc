@@ -1,4 +1,4 @@
-## A view tree in the loop of `TUI.program`: a counter in a box. + and - change it, q quits.
+## A view tree in the loop of `TUI.run`: a counter in a box. + and - change it, q quits.
 ##
 ## Run it from the repository after `make native`: `agentica examples/view.agc`.
 
@@ -10,7 +10,7 @@ end
 
 def main() -> Void
   app = TUI.App(model: 0, update: &update, view: &view, subscriptions: &subscriptions)
-  case TUI.open(->(screen) { TUI.program(screen, app) })
+  case TUI.run(app)
     ok(_) -> puts("bye")
     error(e) -> IO.warn(e.message)
   end

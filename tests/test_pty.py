@@ -185,6 +185,32 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 1)
         self.assertIn(b"RUNTIME-INDEX-OUT-OF-RANGE", term.output[term.output.rindex(LEAVE_SCREEN) :])
 
+    def test_a_crash_in_update_shows_after_the_terminal_is_restored(self) -> None:
+        term = self.start("loop.agc")
+        term.wait_for_row(0, "ticks 3")
+        term.send(b"u")
+
+        self.assertEqual(term.finish(), 1)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        self.assertIn(b"task crashed: RUNTIME-INDEX-OUT-OF-RANGE", after)
+
+    def test_ticks_keep_their_pace_under_steady_keys(self) -> None:
+        term = self.start("ticks.agc")
+        term.wait_for_row(0, "ticks 0 keys 0")
+        started = time.monotonic()
+        while time.monotonic() - started < 2.0:
+            term.send(b"k")
+            term._read(0.02)
+        term.send(b"q")
+        elapsed = time.monotonic() - started
+
+        self.assertEqual(term.finish(), 0)
+        found = re.search(rb"ticks (\d+) keys (\d+)", term.output[term.output.rindex(LEAVE_SCREEN) :])
+        assert found is not None
+        # One tick per 50 ms; a lost tick per key would leave far fewer.
+        self.assertGreaterEqual(int(found.group(1)), int(elapsed / 0.05 * 0.8))
+        self.assertGreater(int(found.group(2)), 50)
+
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

@@ -42,7 +42,7 @@ def subscriptions(_count: Int) -> List[TUI.Sub[Msg]] = [TUI.Sub.Events(->(event)
 
 def main() -> Void
   app = TUI.App(model: 0, update: &update, view: &view, subscriptions: &subscriptions)
-  case TUI.open(->(screen) { TUI.program(screen, app) })
+  case TUI.run(app)
     ok(count) -> puts("count: #{count}")
     error(e) -> IO.warn(e.message)
   end
@@ -53,7 +53,7 @@ end
 
 - [Getting started](docs/getting-started.md): install, a first program, run it.
 - [View tree](docs/view-tree.md): `text`, `row`, `col`, `box`, `spacer`, layout and widths.
-- [Elm loop](docs/elm-loop.md): `TUI.program`, `App`, `Step`, commands and subscriptions.
+- [Elm loop](docs/elm-loop.md): `TUI.run`, `App`, `Step`, commands and subscriptions.
 - [Events](docs/events.md): keys, mouse, paste and resize.
 - [Styles](docs/styles.md): colors, attributes and `merge`.
 - [Low level](docs/low-level.md): cells, `present`, waiting for events, tasks.

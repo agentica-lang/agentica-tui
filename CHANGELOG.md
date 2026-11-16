@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 - `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
   frame no longer clears the screen. `TUI.diff` compares two grids.
-- `TUI.program` runs ticks (`Sub.Tick`) and commands in tasks (`Cmd.Run`).
+- `TUI.run(app)` opens the terminal and runs the Elm loop; ticks (`Sub.Tick`) and commands in tasks (`Cmd.Run`).
 - `TUI.open`, a block form that opens the terminal and always restores it; a crash in the block comes back as an
   error.
 - Drawing: `clear`, `set_cell`, `write`, `present`, `width`, `height`, `set_cursor` and `hide_cursor`, with `Style`,
@@ -22,7 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - A view tree: `TUI.Node`, built with `TUI.text`, `row`, `col`, `box` and `spacer`, drawn by
   `TUI.render(screen, node)`, measured in terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its
   cells without a terminal.
-- `TUI.program(screen, app)`, an Elm loop over the view tree: a `TUI.App` of `model`, `update`, `view` and
+- `TUI.program(screen, app)`, the Elm loop on an open screen: a `TUI.App` of `model`, `update`, `view` and
   `subscriptions`; `update` gives a `Step` of the next model and its commands.
 - An SGR (1006) or urxvt (1015) mouse report keeps the input after it (a key, another report, a paste): the library
   reads these reports itself, strictly, and drops an unknown CSI sequence with parameters instead of reading it as
