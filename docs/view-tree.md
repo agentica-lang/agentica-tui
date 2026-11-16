@@ -22,8 +22,9 @@ end
 - `text(text, style)`: the lines of `text` (split at `\n`), wrapped at spaces to the width it gets; a word longer
   than the line is cut. `style` may be left out.
 - `row(children)`: side by side. Each child, in order, takes the width it needs of what is left, and the height of
-  the row.
-- `col(children)`: one under another. Each child takes the whole width and the height it needs.
+  the row; spacers and children with a list share the width the others leave.
+- `col(children)`: one under another. Each child takes the whole width and the height it needs; spacers and lists
+  share the lines the others leave, a list up to one line per item.
 - `box(child, padding:, border:, style:)`: `padding` cells around the child (a negative padding is 0), a border
   (`Border.None`, the default, or `Border.Line`), and the box filled with `style`. The styles inside are drawn on
   `style` ([merge](styles.md)). Every option may be left out.
@@ -39,7 +40,10 @@ These build the variants of `Node`: `Text(text, style)`, `Row(children)`, `Col(c
 
 - `list(items, selected, focus)`: the items, one line each (a taller item shows its first line), with the item at
   `selected` in `focus` (reverse when left out). When they do not fit in the room the list gets, it scrolls to keep
-  the selected item in the middle, or as near as the ends allow. A `selected` outside the items marks none.
+  the selected item in the middle, or as near as the ends allow. A `selected` outside the items marks none. It
+  never reads the items it does not show, so a long list costs what its visible lines cost.
+- `list_first(count, selected, rows)`: the index of the first item a list of `count` items shows in `rows` lines,
+  so that a click on row `r` of the list is item `list_first(count, selected, rows) + r`.
 - `table(cells, widths)`: the lines of a table, one `line` for each row of `cells`. Each column is as wide as its
   widest cell, or `widths[i]`, with one space before the next. Longer text is cut, a newline is a space, a column of
   width 0 or less is left out, and the cells past the last width are dropped.

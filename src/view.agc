@@ -89,6 +89,14 @@ def layout(node: Node, width: Int, height: Int) -> List[Cell]
   draw(node, Area(x: 0, y: 0, width: width, height: height), St.Style(), [])
 end
 
+## The index of the first item a list of `count` items shows in `rows` lines, with the item at `selected` kept in
+## view, so that row `r` of the list shows item `list_first(count, selected, rows) + r`.
+def list_first(count: Int, selected: Int, rows: Int) -> Int
+  return 0 if count <= rows or rows <= 0
+
+  [[selected - rows / 2, 0].max.unwrap!, count - rows].min.unwrap!
+end
+
 ## The lines of `text` in `width` columns: split at `\n`, wrapped at spaces, and cut where a word does not fit.
 def wrap(text: String, width: Int) -> List[String]
   return [] if width <= 0
@@ -99,6 +107,8 @@ end
 private
 
 FOCUS = St.Style(reverse: true)
+# The most lines a spacer may take.
+UNBOUNDED = 1_000_000_000
 
 struct Area
   x: Int
@@ -110,6 +120,12 @@ end
 struct Size
   width: Int
   height: Int
+end
+
+# The fewest and the most lines a node takes in a column.
+struct Extent
+  least: Int
+  most: Int
 end
 
 # `cells` with those of `node` after them. The cells are passed down, not joined: `xs + ys` copies both lists.
@@ -148,19 +164,65 @@ def measure(node: Node, width: Int) -> Size
     Node.Spacer -> Size(width: 0, height: 0)
     Node.Line(spans) ->
       Size(width: [spans.map { |span| Width.text(flat(span.text)) }.sum, width].min.unwrap!, height: 1)
-    Node.List(items, _, _) ->
-      Size(width: items.map { |item| measure(item, width).width }.max.unwrap_or(0), height: items.size)
+    # A list never measures its items: it takes the width it gets.
+    Node.List(items, _, _) -> Size(width: width, height: items.size)
+  end
+end
+
+# How many lines `node` takes in a column `width` wide: spacers and lists grow with the room, other nodes do not.
+def extent(node: Node, width: Int) -> Extent
+  return Extent(least: 0, most: 0) if width <= 0
+
+  case node
+    Node.Spacer -> Extent(least: 0, most: UNBOUNDED)
+    Node.List(items, _, _) -> Extent(least: 0, most: items.size)
+    Node.Box(child, frame) ->
+      edge = inset(frame)
+      inner = extent(child, width - 2 * edge)
+      Extent(least: inner.least + 2 * edge, most: [inner.most + 2 * edge, UNBOUNDED].min.unwrap!)
+    Node.Col(children) ->
+      parts = children.map { |child| extent(child, width) }
+      most = [parts.map { |part| part.most }.sum, UNBOUNDED].min.unwrap!
+      Extent(least: parts.map { |part| part.least }.sum, most: most)
+    Node.Row(children) -> row_extent(children, width)
+    _ ->
+      height = measure(node, width).height
+      Extent(least: height, most: height)
+  end
+end
+
+# A row is as tall as its tallest child; a spacer in a row is free room across, not down.
+def row_extent(children: List[Node], width: Int) -> Extent
+  sizes = row_sizes(children, width)
+  parts = (0...children.size).select { |i| children[i] != Node.Spacer }.map { |i| extent(children[i], sizes[i].width) }
+  Extent(
+    least: parts.map { |part| part.least }.max.unwrap_or(0),
+    most: parts.map { |part| part.most }.max.unwrap_or(0),
+  )
+end
+
+# True for a node that takes the room a row leaves instead of a width of its own: a spacer, or a node with a list,
+# which takes any width it gets.
+def stretches?(node: Node) -> Bool = node == Node.Spacer or has_list?(node)
+
+def has_list?(node: Node) -> Bool
+  case node
+    Node.List(_, _, _) -> true
+    Node.Box(child, _) -> has_list?(child)
+    Node.Row(children) -> children.any?(&has_list?)
+    Node.Col(children) -> children.any?(&has_list?)
+    _ -> false
   end
 end
 
 # The size of each child of a row in `width` columns: each in order takes the width it needs of what is left, and
-# the spacers share the rest.
+# the spacers and lists share the rest.
 def row_sizes(children: List[Node], width: Int) -> List[Size]
   left = width
   sizes: List[Size] = []
   for child in children
     size = Size(width: 0, height: 0)
-    if child != Node.Spacer
+    if not stretches?(child)
       size = measure(child, left)
     end
 
@@ -172,37 +234,67 @@ def row_sizes(children: List[Node], width: Int) -> List[Size]
   (0...sizes.size).map { |i| sizes[i].with(width: widths[i]) }
 end
 
+# Each child first gets the fewest lines it takes, in order while there is room; the rest goes to the children
+# that grow, evenly, each up to the most it takes.
 def col_heights(children: List[Node], width: Int, height: Int) -> List[Int]
+  extents = children.map { |child| extent(child, width) }
   left = height
-  fixed: List[Int] = []
-  for child in children
-    used = 0
-    if child != Node.Spacer
-      used = [measure(child, width).height, left].min.unwrap!
-    end
-
-    fixed = fixed.push(used)
+  heights: List[Int] = []
+  for part in extents
+    used = [part.least, left].min.unwrap!
+    heights = heights.push(used)
     left = left - used
   end
 
-  shared(children, fixed, left)
+  grown(heights, extents, left)
 end
 
-# `room` split between the spacers, the first ones getting one more when it does not divide evenly.
+def grown(heights: List[Int], extents: List[Extent], room: Int) -> List[Int]
+  out = heights
+  left = room
+  growing = (0...out.size).select { |i| extents[i].most > out[i] }
+  while left > 0 and not growing.empty?
+    share = left / growing.size
+    if share == 0
+      # Fewer lines than growing children: the first ones get one each.
+      for i in growing.take(left)
+        out = out.set(i, out[i] + 1)
+      end
+
+      return out
+    end
+
+    still: List[Int] = []
+    for i in growing
+      add = [share, extents[i].most - out[i]].min.unwrap!
+      out = out.set(i, out[i] + add)
+      left = left - add
+      if out[i] < extents[i].most
+        still = still.push(i)
+      end
+    end
+
+    growing = still
+  end
+
+  out
+end
+
+# `room` split between the children that stretch, the first ones getting one more when it does not divide evenly.
 def shared(children: List[Node], fixed: List[Int], room: Int) -> List[Int]
-  spacers = children.select { |child| child == Node.Spacer }.size
-  return fixed if spacers == 0 or room <= 0
+  count = children.select(&stretches?).size
+  return fixed if count == 0 or room <= 0
 
   out: List[Int] = []
   seen = 0
   for i in 0...children.size
-    if children[i] == Node.Spacer
+    if stretches?(children[i])
       extra = 0
-      if seen < room % spacers
+      if seen < room % count
         extra = 1
       end
 
-      out = out.push(room / spacers + extra)
+      out = out.push(room / count + extra)
       seen = seen + 1
     else
       out = out.push(fixed[i])
@@ -323,7 +415,7 @@ def list_cells(
   into: List[Cell],
 ) -> List[Cell]
   cells = into
-  first = top(items.size, selected, area.height)
+  first = list_first(items.size, selected, area.height)
   last = [first + area.height, items.size].min.unwrap!
   for i in first...last
     part = area.with(y: area.y + i - first, height: 1)
@@ -335,13 +427,6 @@ def list_cells(
   end
 
   cells
-end
-
-# The first item a list of `size` items shows in `rows` lines.
-def top(size: Int, selected: Int, rows: Int) -> Int
-  return 0 if size <= rows
-
-  [[selected - rows / 2, 0].max.unwrap!, size - rows].min.unwrap!
 end
 
 def flat(text: String) -> String = text.replace("\n", " ")
