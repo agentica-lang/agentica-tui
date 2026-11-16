@@ -31,7 +31,8 @@ end
 `Mods` has `alt`, `ctrl`, `shift` and `motion` (a mouse move with a button down).
 
 A lone Escape byte is read as `Key.Escape` (`InputMode.Esc`, the default) or as Alt with the next key
-(`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`.
+(`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`. Alt+Enter is `Key(Key.Enter, Mods(alt: true))` in both
+modes.
 
 ## Mouse
 
