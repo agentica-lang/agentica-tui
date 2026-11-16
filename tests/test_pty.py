@@ -233,6 +233,25 @@ class PtyTest(unittest.TestCase):
 
         self.assertEqual(term.finish(), 0)
 
+    def test_a_combining_mark_is_drawn_on_its_cell_by_the_diff(self) -> None:
+        term = self.start("marks.agc")
+        term.wait_for_row(0, "cafe")
+        # The variation selector is never sent, and x comes right after the warning sign, with no cursor move.
+        term.wait_for_row(1, "\u26a0xyz")
+        self.assertNotIn("\ufe0f".encode(), term.output)
+        self.assertIn("\u26a0xyz".encode(), term.output)
+        start = len(term.output)
+        term.send(b"x")
+        end = term.wait_for("e\u0301!".encode(), start)
+        frame = term.output[start:end]
+        # Only the changed cells are sent: no clear and no "caf".
+        self.assertNotIn(b"\x1b[2J", frame)
+        self.assertNotIn(b"caf", frame)
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        self.assertIn(b"two characters: false", term.output[term.output.rindex(LEAVE_SCREEN) :])
+
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

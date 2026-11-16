@@ -379,9 +379,14 @@ def text_cells(text: String, area: Area, style: St.Style, into: List[Cell]) -> L
   cells = into
   for row in 0...lines.size
     x = area.x
+    start = cells.size
     for char in lines[row].split("")
       columns = Width.char(char)
-      next if columns == 0
+      if columns == 0
+        cells = marked(cells, start, char)
+        next
+      end
+
       break if x + columns > area.x + area.width
 
       cells = cells.push(Cell(x: x, y: area.y + row, char: char, style: style))
@@ -399,7 +404,11 @@ def line_cells(spans: List[Span], area: Area, base: St.Style, into: List[Cell]) 
     style = St.merge(base, span.style)
     for char in flat(span.text).split("")
       columns = Width.char(char)
-      next if columns == 0
+      if columns == 0
+        cells = marked(cells, into.size, char)
+        next
+      end
+
       return cells if x + columns > area.x + area.width
 
       cells = cells.push(Cell(x: x, y: area.y, char: char, style: style))
@@ -408,6 +417,23 @@ def line_cells(spans: List[Span], area: Area, base: St.Style, into: List[Cell]) 
   end
 
   cells
+end
+
+# A zero-width character (a combining mark, a joiner) goes on the last cell drawn since `start`, as termbox2 draws
+# it; with none, it is dropped. A variation selector is dropped too: many terminals draw a character with U+FE0F two
+# columns wide, while termbox2 moves one column on, so the rest of the line would shift.
+def marked(cells: List[Cell], start: Int, char: String) -> List[Cell]
+  return cells if cells.size <= start or selector?(char)
+
+  last = cells.last
+  return cells if last.char.length >= Width.CELL_CHARS
+
+  cells.set(cells.size - 1, last.with(char: last.char + char))
+end
+
+def selector?(char: String) -> Bool
+  code = char.code
+  (code >= 0xFE00 and code <= 0xFE0F) or (code >= 0xE0100 and code <= 0xE01EF)
 end
 
 def list_cells(

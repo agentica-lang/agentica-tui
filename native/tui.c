@@ -400,6 +400,32 @@ int tui_set_cell(void *screen, int x, int y, uint32_t ch, uintattr_t fg,
     TUI_LOCKED(tb_set_cell(x, y, ch, fg, bg));
 }
 
+/* One cell of a character and the zero-width ones after it (combining marks,
+ * ZWJ parts), as UTF-8 with a NUL: at most TUI_CLUSTER_MAX code points. */
+#define TUI_CLUSTER_MAX 32
+int tui_set_cluster(void *screen, int x, int y, const char *text,
+    uintattr_t fg, uintattr_t bg) {
+    uint32_t points[TUI_CLUSTER_MAX];
+    size_t count = 0;
+    (void)screen;
+    while (*text != '\0') {
+        int length;
+        if (count == TUI_CLUSTER_MAX) {
+            return TB_ERR;
+        }
+        length = tb_utf8_char_to_unicode(&points[count], text);
+        if (length <= 0) {
+            return TB_ERR;
+        }
+        text += length;
+        count++;
+    }
+    if (count == 0) {
+        return TB_ERR;
+    }
+    TUI_LOCKED(tb_set_cell_ex(x, y, points, count, fg, bg));
+}
+
 int tui_print(void *screen, int x, int y, uintattr_t fg, uintattr_t bg,
     size_t *out_w, const char *str) {
     (void)screen;

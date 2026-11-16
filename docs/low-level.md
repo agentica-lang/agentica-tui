@@ -7,7 +7,8 @@
   when the block ends.
 - `width(screen)`, `height(screen)`: the size in cells.
 - `clear(screen, style)`: fills the back buffer with spaces in `style`.
-- `set_cell(screen, x, y, char, style)`: one character at column `x`, line `y` (from 0).
+- `set_cell(screen, x, y, char, style)`: one character at column `x`, line `y` (from 0), with the zero-width ones
+  that go on it (combining marks, joiners), at most 32 in all.
 - `write(screen, x, y, text, style)`: text from `x`, `y`; what passes the right edge is cut. Gives the width of
   the text.
 - `present(screen)`: shows the back buffer; nothing drawn appears before it.
@@ -59,4 +60,4 @@ wait's check that the screen is open and its next 50 ms call does the same, inst
 - One terminal per process: termbox2 keeps global state, so a second `open` while one is open is an error.
 - While the screen is open the process has a UTF-8 `LC_CTYPE` (termbox2 needs it to measure characters); the close
   puts the old one back.
-- Not bound: grapheme clusters (`tb_set_cell_ex`), `tb_printf`, output modes 216 and grayscale.
+- Not bound: `tb_printf`, output modes 216 and grayscale.
