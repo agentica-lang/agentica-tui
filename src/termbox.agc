@@ -97,6 +97,21 @@ def render(screen: Screen, node: View.Node) -> Result[Void]
   present(screen)
 end
 
+## Runs an Elm-like loop from `model`: renders `view(model)`, waits for an event and gives it to `update`, until
+## `update` gives `none`. Gives the last model.
+def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Optional[M]], view: Fn[M, View.Node]) -> Result[M]
+  current = model
+  while true
+    try render(screen, view.call(current))
+    case update.call(current, try poll_event(screen))
+      some(next_model) -> current = next_model
+      none -> break
+    end
+  end
+
+  ok(current)
+end
+
 ## Shows the back buffer on the terminal: nothing drawn appears before this.
 def present(screen: Screen) -> Result[Void] = check("present", tui_present(screen))
 

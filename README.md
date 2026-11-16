@@ -100,7 +100,11 @@ end
 
 Widths are terminal columns (glibc's `wcwidth`, `src/width_table.agc`, made by `scripts/width_table.py`), so wide
 characters take two. Nothing is drawn outside the screen. `TUI.layout(node, width, height)` gives the cells without
-a terminal, for tests, and `TUI.wrap(text, width)` the wrapped lines. `examples/view.agc` is a counter.
+a terminal, for tests, and `TUI.wrap(text, width)` the wrapped lines.
+
+`TUI.program(screen, model, update, view)` is an Elm-like loop: it renders `view(model)`, waits for an event, and
+takes the model that `update(model, event)` gives, until `update` gives `none`; it gives the last model.
+`examples/view.agc` is a counter written that way.
 
 ## Tests
 

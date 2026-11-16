@@ -32,6 +32,7 @@ export Tb.set_cell
 export Tb.write
 export Tb.present
 export Tb.render
+export Tb.program
 export Tb.set_cursor
 export Tb.hide_cursor
 export Tb.poll_event

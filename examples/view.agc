@@ -1,4 +1,4 @@
-## A view tree drawn with `TUI.render`: a counter in a box. + and - change it, q quits.
+## A view tree in the loop of `TUI.program`: a counter in a box. + and - change it, q quits.
 ##
 ## Run it from the repository after `make native`: `agentica examples/view.agc`.
 
@@ -12,18 +12,17 @@ def main() -> Void
 end
 
 def run(screen: TUI.Screen) -> Result[Void]
-  count = 0
-  while true
-    try TUI.render(screen, view(count))
-    case try TUI.poll_event(screen)
-      TUI.Event.Char("q", _) -> break
-      TUI.Event.Char("+", _) -> count = count + 1
-      TUI.Event.Char("-", _) -> count = count - 1
-      _ -> nil
-    end
-  end
-
+  _ = try TUI.program(screen, 0, &update, &view)
   ok()
+end
+
+def update(count: Int, event: TUI.Event) -> Optional[Int]
+  case event
+    TUI.Event.Char("q", _) -> none
+    TUI.Event.Char("+", _) -> some(count + 1)
+    TUI.Event.Char("-", _) -> some(count - 1)
+    _ -> some(count)
+  end
 end
 
 def view(count: Int) -> TUI.Node
