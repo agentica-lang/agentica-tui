@@ -9,7 +9,7 @@ bracketed paste and the mouse reports; its writes go on after a short write or a
 
 `native/linux/libtermbox2.so` is committed, so `agentica add` and `agentica install` need no C compiler. It is
 built on ubuntu-22.04 (glibc 2.35) and runs on glibc 2.33 or later. At this version its sha256 is
-`dfb2731fce6b5b55cd7316977be9e094981b31b962dafa88fa9f4c6cdd063193`:
+`2a035fa799f8feb29b0435487afceac683c0714e7a5ce9169152021daab92b4a`:
 
 ```sh
 sha256sum native/linux/libtermbox2.so
