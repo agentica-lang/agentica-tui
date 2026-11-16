@@ -1,7 +1,7 @@
 # Events
 
 `TUI.poll_event(screen)` waits for the next `Event`; `TUI.peek_event(screen, timeout_ms)` gives `none` when none
-comes in time. [`TUI.program`](elm-loop.md) waits with `poll_event`.
+comes in time. [`TUI.program`](elm-loop.md) gives them to a `Sub.Events` subscription.
 
 - `Key(Key, Mods)`: a key that is not a character.
 - `Char(String, Mods)`: a typed character, a space too.
@@ -53,4 +53,4 @@ anything, and a confirmation should not rest on keys alone.
 ## Resize
 
 `Resize(width, height)` comes when the terminal changes size; `TUI.width(screen)` and `TUI.height(screen)` give the
-new size after it. `TUI.program` renders the view again after every event, a resize too.
+new size after it. `TUI.program` draws the view again after a resize, with or without `Sub.Events`.

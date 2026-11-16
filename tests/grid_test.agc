@@ -26,14 +26,22 @@ def main() -> Void
     Test.test("a narrow character over a wide one leaves a space where the wide one ended") do
       old = Gr.of(text("中b"), 4, 1)
       new = Gr.of(text("ab"), 4, 1)
-      try Test.eq(old.glyphs.map { |g| g.char }, ["中", "", "b", " "])
-      try Test.eq(new.glyphs.map { |g| g.char }, ["a", "b", " ", " "])
-      Test.eq(Gr.apply(old, Gr.diff(old, new)), new)
+      try Test.eq(chars(old), ["中", "", "b", " "])
+      try Test.eq(chars(new), ["a", "b", " ", " "])
+      try Test.eq(Gr.apply(old, Gr.diff(old, new)), new)
+      Test.eq(chars(Gr.apply(old, [View.Cell(x: 0, y: 0, char: "a", style: St.Style())])), ["a", " ", "b", " "])
+    end,
+    Test.test("a covered cell is written with its wide character") do
+      old = Gr.of(text("ab"), 4, 1)
+      new = Gr.of(text("中"), 4, 1)
+      Test.eq(Gr.diff(old, new).map { |cell| "#{cell.x} #{cell.char}" }, ["0 中", "1 "])
     end,
   ])
 end
 
 def text(s: String) -> View.Node = View.text(s)
+
+def chars(grid: Gr.Grid) -> List[String] = grid.rows.flat_map { |line| line.map { |g| g.char } }
 
 def counter(count: Int) -> View.Node = View.box(View.text("n #{count}"), border: View.Border.Line)
 

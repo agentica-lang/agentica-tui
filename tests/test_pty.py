@@ -164,6 +164,27 @@ class PtyTest(unittest.TestCase):
 
         self.assertEqual(term.finish(), 0)
 
+    def test_the_loop_ticks_runs_commands_and_quits(self) -> None:
+        term = self.start("loop.agc")
+        term.wait_for_row(0, "ticks 3")
+        # The subscription to the ticks ends at 3.
+        term._read(0.3)
+        self.assertEqual(screen_rows(term.output[term.output.rfind(ENTER_SCREEN) :])[0], "ticks 3")
+        term.send(b"r")
+        term.wait_for_row(1, "ran done")
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        self.assertIn(b"ticks 3, ran done", term.output[term.output.rindex(LEAVE_SCREEN) :])
+
+    def test_a_crash_in_a_command_ends_the_loop_with_an_error(self) -> None:
+        term = self.start("loop.agc")
+        term.wait_for_row(0, "ticks 3")
+        term.send(b"x")
+
+        self.assertEqual(term.finish(), 1)
+        self.assertIn(b"RUNTIME-INDEX-OUT-OF-RANGE", term.output[term.output.rindex(LEAVE_SCREEN) :])
+
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

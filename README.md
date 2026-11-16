@@ -23,19 +23,26 @@ A counter: `+` and `-` change it, `q` quits.
 ```ruby
 import TUI from "pkg/tui/tui"
 
-def update(count: Int, event: TUI.Event) -> TUI.Step[Int]
-  case event
-    TUI.Event.Char("q", _) -> TUI.Step.Quit
-    TUI.Event.Char("+", _) -> TUI.Step.Continue(count + 1)
-    TUI.Event.Char("-", _) -> TUI.Step.Continue(count - 1)
-    _ -> TUI.Step.Continue(count)
+enum Msg
+  Key(TUI.Event)
+end
+
+def update(count: Int, msg: Msg) -> TUI.Step[Int, Msg]
+  case msg
+    Msg.Key(TUI.Event.Char("q", _)) -> TUI.Step(model: count, cmds: [TUI.Cmd.Quit])
+    Msg.Key(TUI.Event.Char("+", _)) -> TUI.Step(model: count + 1)
+    Msg.Key(TUI.Event.Char("-", _)) -> TUI.Step(model: count - 1)
+    Msg.Key(_) -> TUI.Step(model: count)
   end
 end
 
 def view(count: Int) -> TUI.Node = TUI.box(TUI.text("count: #{count}"), padding: 1, border: TUI.Border.Line)
 
+def subscriptions(_count: Int) -> List[TUI.Sub[Msg]] = [TUI.Sub.Events(->(event) { Msg.Key(event) })]
+
 def main() -> Void
-  case TUI.open(->(screen) { TUI.program(screen, 0, &update, &view) })
+  app = TUI.App(model: 0, update: &update, view: &view, subscriptions: &subscriptions)
+  case TUI.open(->(screen) { TUI.program(screen, app) })
     ok(count) -> puts("count: #{count}")
     error(e) -> IO.warn(e.message)
   end
@@ -46,7 +53,7 @@ end
 
 - [Getting started](docs/getting-started.md): install, a first program, run it.
 - [View tree](docs/view-tree.md): `text`, `row`, `col`, `box`, `spacer`, layout and widths.
-- [Elm loop](docs/elm-loop.md): `TUI.program`, `Step`, `update` and `view`.
+- [Elm loop](docs/elm-loop.md): `TUI.program`, `App`, `Step`, commands and subscriptions.
 - [Events](docs/events.md): keys, mouse, paste and resize.
 - [Styles](docs/styles.md): colors, attributes and `merge`.
 - [Low level](docs/low-level.md): cells, `present`, waiting for events, tasks.

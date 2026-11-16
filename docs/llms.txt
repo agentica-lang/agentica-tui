@@ -2,13 +2,13 @@
 
 > A terminal UI library for Agentica: a typed view tree, an Elm-like loop, and key, mouse, paste and resize events, on termbox2.
 
-Import it with `import TUI from "pkg/tui/tui"`. Build a view with `TUI.text`, `row`, `col`, `box` and `spacer`, run it with `TUI.program(screen, model, update, view)` inside `TUI.open`, and test views without a terminal with `TUI.layout`. Linux x86_64 only; the package ships its termbox2 library.
+Import it with `import TUI from "pkg/tui/tui"`. Build a view with `TUI.text`, `row`, `col`, `box` and `spacer`, run it with `TUI.program(screen, app)` inside `TUI.open` (a `TUI.App` of model, update, view and subscriptions; effects are `Cmd` and `Sub` values), and test views without a terminal with `TUI.layout`. Linux x86_64 only; the package ships its termbox2 library.
 
 ## Docs
 
 - [Getting started](https://github.com/agentica-lang/agentica-tui/blob/main/docs/getting-started.md): install, a first program, run it.
 - [View tree](https://github.com/agentica-lang/agentica-tui/blob/main/docs/view-tree.md): text, row, col, box, spacer, layout and widths.
-- [Elm loop](https://github.com/agentica-lang/agentica-tui/blob/main/docs/elm-loop.md): TUI.program, Step, update and view, and the no-tick limit.
+- [Elm loop](https://github.com/agentica-lang/agentica-tui/blob/main/docs/elm-loop.md): TUI.program, App, Step, Cmd (Run, Quit) and Sub (Tick, Events).
 - [Events](https://github.com/agentica-lang/agentica-tui/blob/main/docs/events.md): keys, mouse, paste (never confirm on a paste) and resize.
 - [Styles](https://github.com/agentica-lang/agentica-tui/blob/main/docs/styles.md): colors, attributes and merge.
 - [Low level](https://github.com/agentica-lang/agentica-tui/blob/main/docs/low-level.md): cells, present, waiting for events, tasks and locks.
