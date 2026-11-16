@@ -4,9 +4,11 @@
 ## termbox2 keeps one terminal per process. Any task may draw while another waits for an event: native/tui.c puts
 ## every termbox2 call under one lock.
 
+import Bd from "backend"
 import Ev from "event"
 import Gr from "grid"
 import St from "style"
+import Codes from "tb_codes"
 import View from "view"
 import Width from "width"
 
@@ -72,8 +74,8 @@ def height(screen: Screen) -> Int = tui_height(screen)
 
 ## Fills the back buffer with spaces of the style (default colors when left out).
 def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void]
-  fg = try St.fg_value(style)
-  bg = try St.bg_value(style)
+  fg = try Codes.fg_value(style)
+  bg = try Codes.bg_value(style)
   check("clear", tui_clear(screen, fg, bg))
 end
 
@@ -82,8 +84,8 @@ end
 def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
   return error("tui: set_cell needs one character: #{char.inspect}") if not cluster?(char)
 
-  fg = try St.fg_value(style)
-  bg = try St.bg_value(style)
+  fg = try Codes.fg_value(style)
+  bg = try Codes.bg_value(style)
   return check("set_cell", tui_set_cell(screen, x, y, char.code, fg, bg)) if char.length == 1
 
   check("set_cell", tui_set_cluster(screen, x, y, char, fg, bg))
@@ -94,8 +96,8 @@ end
 def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Style()) -> Result[Int]
   return error("tui: write cannot send a NUL character") if text.include?(String.from_code(0))
 
-  fg = try St.fg_value(style)
-  bg = try St.bg_value(style)
+  fg = try Codes.fg_value(style)
+  bg = try Codes.bg_value(style)
   printed = tui_print(screen, x, y, fg, bg, text)
   try check("write", printed.result)
   ok(printed.width)
@@ -104,28 +106,32 @@ end
 ## Draws `node` over the whole screen and shows it. Only the cells that differ from `last` (what the screen shows) are
 ## written; with no `last`, the screen is cleared first. Gives what the screen shows now, for the next call.
 def render(screen: Screen, node: View.Node, last: Optional[Gr.Grid] = none) -> Result[Gr.Grid]
-  shown = case last
-    some(grid) -> grid
-    none -> try cleared(screen)
-  end
-
-  next = Gr.of(node, width(screen), height(screen))
-  for cell in Gr.diff(shown, next)
-    # A covered cell gets a space, which termbox2 skips after a character it finds wide.
-    char = cell.char
-    if char == ""
-      char = " "
-    end
-
-    try set_cell(screen, cell.x, cell.y, char, cell.style)
-  end
-
-  try present(screen)
-  ok(next)
+  Bd.render(backend(screen), node, last)
 end
 
-## Shows the back buffer on the terminal: nothing drawn appears before this.
-def present(screen: Screen) -> Result[Void] = check("present", tui_present(screen))
+## The screen as a backend of the program loop.
+def backend(screen: Screen) -> Bd.Backend
+  Bd.Backend(
+    width: -> { width(screen) },
+    height: -> { height(screen) },
+    clear: -> { clear(screen) },
+    draw: ->(cells) { draw(screen, cells) },
+    present: -> { present(screen) },
+    next_event: ->(timeout_ms) { peek_event(screen, timeout_ms) },
+    set_modes: ->(modes) { set_modes(screen, modes) },
+    set_cursor: ->(x, y) { set_cursor(screen, x, y) },
+    hide_cursor: -> { hide_cursor(screen) },
+  )
+end
+
+## Shows the back buffer on the terminal: nothing drawn appears before this. A write the terminal cut short is tried
+## once more.
+def present(screen: Screen) -> Result[Void]
+  # A short write (an EINTR during a large redraw) keeps termbox2's buffer, so a second try writes all of it again.
+  return ok() if tui_present(screen) >= TB_OK
+
+  check("present", tui_present(screen))
+end
 
 ## Shows the cursor at column x, row y.
 def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = check("set_cursor", tui_set_cursor(screen, x, y))
@@ -151,11 +157,11 @@ end
 
 ## Sets how Escape is read, and whether mouse events come.
 def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> Result[Void]
-  check("set_input_mode", tui_set_input_mode(screen, Ev.input_mode_value(mode, mouse)))
+  check("set_input_mode", tui_set_input_mode(screen, Codes.input_mode_value(mode, mouse)))
 end
 
 ## The modes the screen has now.
-def modes(screen: Screen) -> Result[Modes]
+def current_modes(screen: Screen) -> Result[Modes]
   input = tui_set_input_mode(screen, TB_CURRENT)
   try check("set_input_mode", input)
   output = tui_set_output_mode(screen, TB_CURRENT)
@@ -171,7 +177,7 @@ end
 
 ## Sets how colors are sent (`Normal` at the start).
 def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void]
-  check("set_output_mode", tui_set_output_mode(screen, St.output_mode_value(mode)))
+  check("set_output_mode", tui_set_output_mode(screen, Codes.output_mode_value(mode)))
 end
 
 private
@@ -202,7 +208,7 @@ def wait_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
 
       code = tui_wait_event(screen, buffer, slice(deadline, timeout_ms))
       if code == TB_OK
-        found = Ev.decode(with_paste(screen, read_event(buffer)))
+        found = Codes.decode(with_paste(screen, read_event(buffer)))
         return ok(found) if found.some?
       elsif code == TB_ERR_NOT_INIT
         return error("tui: the screen is closed")
@@ -228,8 +234,8 @@ def slice(deadline: Int, timeout_ms: Int) -> Int
   left
 end
 
-def read_event(buffer: C.Pointer) -> Ev.Raw
-  Ev.Raw(
+def read_event(buffer: C.Pointer) -> Codes.Raw
+  Codes.Raw(
     kind: Native.get_uint8(buffer, 0),
     mod: Native.get_uint8(buffer, 1),
     key: Native.get_uint16(buffer, 2),
@@ -248,13 +254,30 @@ def cluster?(char: String) -> Bool
   char.split("").drop(1).all? { |c| Width.char(c) == 0 }
 end
 
-def cleared(screen: Screen) -> Result[Gr.Grid]
-  try clear(screen)
-  ok(Gr.blank(width(screen), height(screen)))
+def draw(screen: Screen, cells: List[View.Cell]) -> Result[Void]
+  for cell in cells
+    # A covered cell gets a space, which termbox2 skips after a character it finds wide.
+    char = cell.char
+    if char == ""
+      char = " "
+    end
+
+    try set_cell(screen, cell.x, cell.y, char, cell.style)
+  end
+
+  ok()
 end
 
-def with_paste(screen: Screen, raw: Ev.Raw) -> Ev.Raw
-  return raw if raw.kind != Ev.KIND_PASTE
+# Sets the modes; the function it gives puts back those before.
+def set_modes(screen: Screen, modes: Bd.Modes) -> Result[Fn[Result[Void]]]
+  before = try current_modes(screen)
+  try set_input_mode(screen, modes.input, mouse: modes.mouse)
+  try set_output_mode(screen, modes.output)
+  ok(-> { restore_modes(screen, before) })
+end
+
+def with_paste(screen: Screen, raw: Codes.Raw) -> Codes.Raw
+  return raw if raw.kind != Codes.KIND_PASTE
 
   room = tui_paste_length(screen)
   Native.memory_pointer([room, 1].max.unwrap!) do |buffer|

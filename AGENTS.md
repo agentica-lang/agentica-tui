@@ -5,10 +5,15 @@ A terminal UI package for Agentica: termbox2 through the FFI.
 ## Map
 
 ```text
-tui.agc                the public API: re-exports src/; `module Raw` wraps src/termbox.agc
-src/termbox.agc        the extern block (resource Screen) and the wrappers: open, draw, present, events, modes
-src/event.agc          Event, Key, Mouse, Mods, InputMode; decodes the fields of a struct tb_event (pure)
-src/style.agc          Color, Attr, Style, OutputMode; the termbox2 attribute values (pure)
+tui.agc                the public API: re-exports src/; `module Raw` wraps src/termbox.agc, `module Testing`
+                       src/fake.agc
+src/backend.agc        Backend, what the loop needs of a terminal (a record of functions), Modes, render
+src/termbox.agc        the extern block (resource Screen), the wrappers (open, draw, present, events, modes) and
+                       the termbox2 backend
+src/tb_codes.agc       the termbox2 values: struct tb_event decoded, attributes, colors and modes encoded (pure)
+src/fake.agc           a backend with no terminal for tests: scripted events, the calls kept in order
+src/event.agc          Event, Key, Mouse, Mods, InputMode (pure)
+src/style.agc          Color, Attr, Style, OutputMode (pure)
 src/view.agc           the view tree and its layout into cells (pure)
 src/grid.agc           Grid, a screen as a value, and diff (pure)
 src/widgets.agc        table, the lines of a table built from the tree (pure)
@@ -18,7 +23,7 @@ native/tui.c           termbox2 plus the tui_* functions the bindings call: one 
                        tui_shutdown (the free function of Screen), tui_wait_event (waits of at most 50 ms)
 examples/              the demos (box.agc, view.agc)
 docs/                  the user guide, one topic per page; README.md links each page
-tests/*_test.agc       unit tests of the pure helpers
+tests/*_test.agc       unit tests of the pure helpers; program_test runs the loop on the fake backend
 tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fixtures/*.agc and the demo
 ```
 

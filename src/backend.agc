@@ -1,0 +1,54 @@
+## What a program needs of a terminal, as a record of functions: its size, drawing cells and showing them, waiting
+## for events, and the modes. termbox2 is one backend (`termbox.agc`); a fake one (`fake.agc`) runs a program in a
+## test.
+
+import Ev from "event"
+import Gr from "grid"
+import St from "style"
+import View from "view"
+
+## The modes a program runs the terminal with: how Escape is read, whether mouse events come, how colors are sent.
+struct Modes
+  input: Ev.InputMode = Ev.InputMode.Esc
+  mouse: Bool = false
+  output: St.OutputMode = St.OutputMode.Normal
+end
+
+struct Backend
+  width: Fn[Int]
+  height: Fn[Int]
+  ## Fills the screen with spaces of the default style.
+  clear: Fn[Result[Void]]
+  ## Writes cells; "" is a cell a wide character on its left covers.
+  draw: Fn[List[View.Cell], Result[Void]]
+  ## Shows what was drawn.
+  present: Fn[Result[Void]]
+  ## Waits up to so many milliseconds for an event: none when none came, an error once the terminal is gone.
+  next_event: Fn[Int, Result[Optional[Ev.Event]]]
+  ## Sets the modes, and gives the function that puts back the modes before.
+  set_modes: Fn[Modes, Result[Fn[Result[Void]]]]
+  set_cursor: Fn[Int, Int, Result[Void]]
+  hide_cursor: Fn[Result[Void]]
+end
+
+## Draws `node` over the whole screen and shows it. Only the cells that differ from `last` (what the screen shows) are
+## written; with no `last`, the screen is cleared first. Gives what the screen shows now, for the next call.
+def render(backend: Backend, node: View.Node, last: Optional[Gr.Grid] = none) -> Result[Gr.Grid]
+  # The size is read after the clear: termbox2 takes a new size then.
+  shown = case last
+    some(grid) -> grid
+    none -> try cleared(backend)
+  end
+
+  next = Gr.of(node, backend.width.call(), backend.height.call())
+  try backend.draw.call(Gr.diff(shown, next))
+  try backend.present.call()
+  ok(next)
+end
+
+private
+
+def cleared(backend: Backend) -> Result[Gr.Grid]
+  try backend.clear.call()
+  ok(Gr.blank(backend.width.call(), backend.height.call()))
+end

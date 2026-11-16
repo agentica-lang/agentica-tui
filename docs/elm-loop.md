@@ -13,8 +13,8 @@
 The messages are your own type, often an enum. The loop takes every message that is waiting, gives each to
 `update`, then draws `view(model)` once, writing only the cells that changed. It gives the last model when a command
 is `Cmd.Quit`; the messages after it never reach `update`, and a key typed after it may be lost. A runtime error in `update`, `view` or `subscriptions` ends the
-loop with that error, given once the terminal is restored. `TUI.Raw.program(screen, app)` is the same loop on a screen
-that is already open.
+loop with that error, given once the terminal is restored. `TUI.Raw.program(TUI.Raw.backend(screen), app)` is the
+same loop on a screen that is already open.
 
 ## Commands
 
