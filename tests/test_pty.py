@@ -322,6 +322,22 @@ class PtyTest(unittest.TestCase):
             + [f"Event.Mouse(Mouse.Left, 79, 23, {plain})", f'Event.Char("a", {plain})'],
         )
 
+    def test_alt_bracket_and_a_letter_keep_the_letter(self) -> None:
+        term = self.start("events.agc")
+        term.wait_for_row(0, "ready 80x24")
+        term.send(b"\x1b[x")
+        term.wait_for_row(0, 'Event.Char("x"')
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
+        plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
+        self.assertEqual(
+            lines,
+            ["peek none", f"Event.Key(Key.Escape, {plain})", f'Event.Char("[", {plain})', f'Event.Char("x", {plain})'],
+        )
+
     def test_cells_and_text_reach_the_screen_with_their_style(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

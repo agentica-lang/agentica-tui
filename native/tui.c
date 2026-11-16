@@ -265,6 +265,11 @@ static int extract_mouse(struct tb_event *event, size_t *consumed) {
     if (cap_trie_find(in->buf, in->len, &node, &depth) == TB_OK && node->is_leaf) {
         return TB_ERR;
     }
+    /* `ESC [` and a final byte with nothing between is Alt+[ (or Escape and [)
+     * and a character: termbox2 reads it as those. */
+    if (end == 3) {
+        return TB_ERR;
+    }
     int sgr = in->buf[2] == '<';
     size_t at = sgr ? 3 : 2;
     unsigned b = 0, x = 0, y = 0;
