@@ -6,8 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line`, and
-  `TUI.Raw.set_cell` takes a character with its zero-width ones.
+- Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
+  are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
 - `TUI.line(spans)`, one line of styled `TUI.span`s that never wraps; `TUI.list(items, selected)`, a list that marks
   its selected item and scrolls to it in the room its siblings leave (`TUI.list_first` maps a row to its item);
   `TUI.table(cells)`, the aligned lines of a table. A `case` over `Node` needs the variants `Line` and `List`.

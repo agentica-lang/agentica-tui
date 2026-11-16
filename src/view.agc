@@ -420,14 +420,20 @@ def line_cells(spans: List[Span], area: Area, base: St.Style, into: List[Cell]) 
 end
 
 # A zero-width character (a combining mark, a joiner) goes on the last cell drawn since `start`, as termbox2 draws
-# it; with none, it is dropped.
+# it; with none, it is dropped. A variation selector is dropped too: many terminals draw a character with U+FE0F two
+# columns wide, while termbox2 moves one column on, so the rest of the line would shift.
 def marked(cells: List[Cell], start: Int, char: String) -> List[Cell]
-  return cells if cells.size <= start
+  return cells if cells.size <= start or selector?(char)
 
   last = cells.last
   return cells if last.char.length >= Width.CELL_CHARS
 
   cells.set(cells.size - 1, last.with(char: last.char + char))
+end
+
+def selector?(char: String) -> Bool
+  code = char.code
+  (code >= 0xFE00 and code <= 0xFE0F) or (code >= 0xE0100 and code <= 0xE01EF)
 end
 
 def list_cells(

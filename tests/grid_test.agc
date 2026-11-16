@@ -43,7 +43,10 @@ def main() -> Void
       try Test.eq(chars(Gr.of(text(decomposed), 7, 1)), ["c", "a", "f", "e#{ACUTE}", " ", "x", " "])
       try Test.eq(chars(Gr.of(View.line([View.span("e"), View.span("#{ACUTE}!")]), 3, 1)), ["e#{ACUTE}", "!", " "])
       try Test.eq(chars(Gr.of(text("#{ACUTE}a"), 2, 1)), ["a", " "])
-      Test.eq(chars(Gr.of(text("中#{ACUTE}b"), 4, 1)), ["中#{ACUTE}", "", "b", " "])
+      try Test.eq(chars(Gr.of(text("中#{ACUTE}b"), 4, 1)), ["中#{ACUTE}", "", "b", " "])
+      warning = String.from_code(0x26A0)
+      emoji = String.from_code(0xFE0F)
+      Test.eq(chars(Gr.of(View.line([View.span("#{warning}#{emoji}x")]), 3, 1)), [warning, "x", " "])
     end,
     Test.test("a joiner stays on the emoji before it, and the diff writes the whole cell") do
       woman = String.from_code(0x1F469)
