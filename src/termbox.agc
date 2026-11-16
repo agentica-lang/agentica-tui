@@ -6,6 +6,7 @@
 
 import Ev from "event"
 import St from "style"
+import View from "view"
 
 extern "termbox2"
   ## The open terminal. Closing it (`open` does) restores the terminal; so does the end of the program, a crash too.
@@ -34,6 +35,12 @@ extern "termbox2"
   def tui_set_input_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_set_output_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_strerror(code: C.Int32) -> C.String
+end
+
+## What `update` gives in `program`: the next model, or the end of the loop.
+enum Step[M]
+  Continue(M)
+  Quit
 end
 
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
@@ -84,6 +91,31 @@ def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Sty
   printed = tui_print(screen, x, y, fg, bg, text)
   try check("write", printed.result)
   ok(printed.width)
+end
+
+## Clears the screen, draws `node` over all of it (`View.layout`) and shows it.
+def render(screen: Screen, node: View.Node) -> Result[Void]
+  try clear(screen)
+  for cell in View.layout(node, width(screen), height(screen))
+    try set_cell(screen, cell.x, cell.y, cell.char, cell.style)
+  end
+
+  present(screen)
+end
+
+## Runs an Elm-like loop from `model`: renders `view(model)`, waits for an event and gives it to `update`, until
+## `update` gives `Step.Quit`. Gives the last model.
+def program[M](screen: Screen, model: M, update: Fn[M, Ev.Event, Step[M]], view: Fn[M, View.Node]) -> Result[M]
+  current = model
+  while true
+    try render(screen, view.call(current))
+    case update.call(current, try poll_event(screen))
+      Step.Continue(next_model) -> current = next_model
+      Step.Quit -> break
+    end
+  end
+
+  ok(current)
 end
 
 ## Shows the back buffer on the terminal: nothing drawn appears before this.
