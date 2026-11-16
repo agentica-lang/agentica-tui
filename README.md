@@ -15,7 +15,7 @@ a project at a commit of `main` (the whole commit id):
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
 ```
 
-To check the library: `sha256sum native/linux/libtermbox2.so` gives `2471dceb0faebe3d4ddac543aeb1e32872d97e1c58e6ec8fd3c234c7a2a5621d` at this version, and the `native` job of
+To check the library: `sha256sum native/linux/libtermbox2.so` gives `fa84777cf3e4bee5985d3ecdf46319708069f01ab1abe7c173667dcfaec60f5a` at this version, and the `native` job of
 CI fails unless the committed file is byte for byte a fresh build of `native/` on ubuntu-22.04 (`make
 native-verify`).
 
