@@ -221,6 +221,18 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 0)
         self.assertRegex(term.output[term.output.rindex(LEAVE_SCREEN) :], rb"ticks \d+ keys 2\b")
 
+    def test_raw_program_gives_the_screen_back_its_modes(self) -> None:
+        term = self.start("modes.agc")
+        term.wait_for_row(0, "app")
+        on = term.output.rindex(b"\x1b[?1000h")
+        term.send(b"q")
+        term.wait_for_row(0, "back")
+        back = term.output.rindex(b"back")
+        self.assertIn(b"\x1b[?1000l", term.output[on:back])
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+
     def test_events_are_decoded_and_the_terminal_restored(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")

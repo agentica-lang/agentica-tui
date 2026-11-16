@@ -48,8 +48,10 @@ def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(sc
 
 ## Runs `app` on an open screen until a command is `Cmd.Quit`, and gives the last model. After the messages that
 ## came together it draws `view(model)`. Gives an error when the terminal fails or `update`, `view`,
-## `subscriptions` or a `Cmd.Run` function stops with a runtime error. A key typed after the quit may be lost.
+## `subscriptions` or a `Cmd.Run` function stops with a runtime error. A key typed after the quit may be lost. The
+## screen gets back the modes it had before.
 def program[M, Msg](screen: Tb.Screen, app: App[M, Msg]) -> Result[M]
+  before = try Tb.modes(screen)
   try Tb.set_input_mode(screen, app.input, mouse: app.mouse)
   try Tb.set_output_mode(screen, app.output)
   inbox: Channel[Input[Msg]] = Channel.new(INBOX)
@@ -62,6 +64,10 @@ def program[M, Msg](screen: Tb.Screen, app: App[M, Msg]) -> Result[M]
   # hold the screen open.
   stop.close
   Task.await(reader)
+  restored = Tb.restore_modes(screen, before)
+  return result if not result.ok?
+
+  try restored
   result
 end
 
