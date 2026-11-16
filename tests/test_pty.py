@@ -266,6 +266,62 @@ class PtyTest(unittest.TestCase):
 
         self.assertEqual(term.finish(), 0)
 
+    def test_a_mouse_report_keeps_the_input_after_it(self) -> None:
+        term = self.start("events.agc")
+        term.wait_for_row(0, "ready 80x24")
+        writes = [
+            (b"\x1b[<0;5;3Ma", 'Event.Char("a"'),
+            (b"\x1b[<0;5;3M\x1b[<0;6;4m", "Event.Mouse(Mouse.Release, 5, 3"),
+            (b"\x1b[<2;1;1M\x1b[200~hi\x1b[201~", 'Event.Paste("hi")'),
+            (b"\x1b[32;7;8M\x1b[5;6;7Xb", 'Event.Char("b"'),
+        ]
+        for data, shown in writes:
+            term.send(data)
+            term.wait_for_row(0, shown)
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
+        plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
+        self.assertEqual(
+            lines,
+            [
+                "peek none",
+                f"Event.Mouse(Mouse.Left, 4, 2, {plain})",
+                f'Event.Char("a", {plain})',
+                f"Event.Mouse(Mouse.Left, 4, 2, {plain})",
+                f"Event.Mouse(Mouse.Release, 5, 3, {plain})",
+                f"Event.Mouse(Mouse.Right, 0, 0, {plain})",
+                'Event.Paste("hi")',
+                f"Event.Mouse(Mouse.Left, 6, 7, {plain})",
+                f'Event.Char("b", {plain})',
+            ],
+        )
+
+    def test_a_mouse_report_split_across_reads_is_one_report(self) -> None:
+        term = self.start("events.agc")
+        term.wait_for_row(0, "ready 80x24")
+        term.send(b"\x1b[<0;5;")
+        time.sleep(0.2)
+        term.send(b"3Ma")
+        term.wait_for_row(0, 'Event.Char("a"')
+        many = b"\x1b[<64;10;10M" * 6 + b"\x1b[<0;-5;3M\x1b[<0;999;999Ma"
+        term.send(many)
+        term.wait_for_row(0, 'Event.Char("a"')
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
+        plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
+        self.assertEqual(
+            lines,
+            ["peek none", f"Event.Mouse(Mouse.Left, 4, 2, {plain})", f'Event.Char("a", {plain})']
+            + [f"Event.Mouse(Mouse.WheelUp, 9, 9, {plain})"] * 6
+            + [f"Event.Mouse(Mouse.Left, 79, 23, {plain})", f'Event.Char("a", {plain})'],
+        )
+
     def test_cells_and_text_reach_the_screen_with_their_style(self) -> None:
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")
