@@ -15,7 +15,7 @@ a project at a commit of `main` (the whole commit id):
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
 ```
 
-To check the library: `sha256sum native/linux/libtermbox2.so` gives `32b1321834545539e9e1ef0fa073b8670a92061a172e1f594bd9399940999661` at this version, and the `native` job of
+To check the library: `sha256sum native/linux/libtermbox2.so` gives `2471dceb0faebe3d4ddac543aeb1e32872d97e1c58e6ec8fd3c234c7a2a5621d` at this version, and the `native` job of
 CI fails unless the committed file is byte for byte a fresh build of `native/` on ubuntu-22.04 (`make
 native-verify`).
 
@@ -68,7 +68,12 @@ All in `tui.agc` (`import TUI from "pkg/tui/tui"`). Every function that can fail
   `OutputMode.Normal`, `Colors256` or `Truecolor`.
 - `set_cursor(screen, x, y)`, `hide_cursor(screen)`.
 - A call with a screen after it is closed stops the task with `RUNTIME-NATIVE-CLOSED`.
-- `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`.
+- `Event`: `Key(Key, Mods)`, `Char(String, Mods)`, `Mouse(Mouse, x, y, Mods)`, `Resize(width, height)`,
+  `Paste(text)`. The screen turns on bracketed paste (`ESC [ ? 2004 h`, off at the close), so pasted text comes as one
+  `Paste` with `\n` line ends, and the keys in it never come as `Key` or `Char` events. A paste keeps its first
+  1 MiB and drops the rest up to its end mark; one with no end mark ends after 2 s with nothing more to read, and
+  what follows comes as keys. A lone end mark is dropped. A program that sends its own end mark inside a paste can
+  still inject keys: a `Paste` must never confirm anything, and a confirmation should not rest on keys alone.
 - `Key`: `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`,
   `End`, `PageUp`, `PageDown`, `F(n)`, `Ctrl("c")`, `Other(code)`.
 - `Style(fg:, bg:, bold:, dim:, italic:, underline:, reverse:, attrs:)`, every field optional, with `Color`

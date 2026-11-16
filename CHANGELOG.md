@@ -20,9 +20,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `TUI.render(screen, node)`, measured in terminal columns, wrapped and clipped to the screen; `TUI.layout` gives its
   cells without a terminal.
 - `TUI.program(screen, model, update, view)`, an Elm-like loop over the view tree; `update` gives a `Step`.
+- Bracketed paste: the screen turns it on and off, and a paste is one `Event.Paste(text)`, so its keys never come
+  as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
 - termbox2 v2.5.0, vendored, built into `libtermbox2`; the package ships it prebuilt for Linux x86_64 (glibc 2.33 or
-  later), so `agentica add` and `agentica install` work with no C compiler. sha256 `32b1321834545539e9e1ef0fa073b8670a92061a172e1f594bd9399940999661`; CI checks it is byte
+  later), so `agentica add` and `agentica install` work with no C compiler. sha256 `2471dceb0faebe3d4ddac543aeb1e32872d97e1c58e6ec8fd3c234c7a2a5621d`; CI checks it is byte
   for byte a fresh build on ubuntu-22.04.
 
 ### Changed

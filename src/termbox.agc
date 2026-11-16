@@ -35,6 +35,8 @@ extern "termbox2"
   def tui_set_input_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_set_output_mode(screen: Screen, mode: C.Int32) -> C.Int32
   def tui_strerror(code: C.Int32) -> C.String
+  def tui_paste_length(screen: Screen) -> C.Int64
+  def tui_paste_copy(screen: Screen, dest: C.Pointer, room: C.Int64) -> C.Int64
 end
 
 ## What `update` gives in `program`: the next model, or the end of the loop.
@@ -179,7 +181,7 @@ def wait_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
 
       code = tui_wait_event(screen, buffer, slice(deadline, timeout_ms))
       if code == TB_OK
-        found = Ev.decode(read_event(buffer))
+        found = Ev.decode(with_paste(screen, read_event(buffer)))
         return ok(found) if found.some?
       elsif code == TB_ERR_NOT_INIT
         return error("tui: the screen is closed")
@@ -216,6 +218,16 @@ def read_event(buffer: C.Pointer) -> Ev.Raw
     x: Native.get_int32(buffer, 16),
     y: Native.get_int32(buffer, 20),
   )
+end
+
+def with_paste(screen: Screen, raw: Ev.Raw) -> Ev.Raw
+  return raw if raw.kind != Ev.KIND_PASTE
+
+  room = tui_paste_length(screen)
+  Native.memory_pointer([room, 1].max.unwrap!) do |buffer|
+    copied = tui_paste_copy(screen, buffer, room)
+    raw.with(text: Native.get_string(buffer, 0, copied))
+  end
 end
 
 def check(what: String, code: Int) -> Result[Void]
