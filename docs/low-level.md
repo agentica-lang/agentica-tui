@@ -15,7 +15,8 @@
 - `poll_event(screen)`, `peek_event(screen, timeout_ms)`: see [Events](events.md).
 - `set_input_mode(screen, mode, mouse)`, `set_output_mode(screen, mode)`.
 - `render(screen, node, last)`, `diff(old, new)`, `Grid`: see [View tree](view-tree.md).
-- `program(screen, app)`: the loop of `TUI.run` on a screen already open.
+- `program(screen, app)`: the loop of `TUI.run` on a screen already open; it sets the modes of the app and puts the
+  screen's own modes back when it ends.
 
 `style` may be left out. A loop written by hand with a one-second wait (in [`TUI.run`](elm-loop.md) it is a
 `Sub.Tick`):

@@ -33,6 +33,7 @@ import Pg from "src/program"
 import St from "src/style"
 import Tb from "src/termbox"
 import View from "src/view"
+import Wg from "src/widgets"
 
 export Pg.run
 export Pg.App
@@ -60,6 +61,8 @@ export View.spacer
 export View.Cell
 export View.layout
 export View.wrap
+export Wg.list
+export Wg.table
 
 ## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.
 module Raw
@@ -77,7 +80,7 @@ module Raw
   ## `error("task crashed: ...")` when the block stops with a runtime error.
   def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tb.open(body)
 
-  ## Runs `app` on an open screen, as `run` does.
+  ## Runs `app` on an open screen, as `run` does, and gives the screen back the modes it had before.
   def program[M, Msg](screen: Screen, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(screen, app)
 
   ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.

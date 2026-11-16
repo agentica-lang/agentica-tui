@@ -32,6 +32,25 @@ end
 These build the variants of `Node`: `Text(text, style)`, `Row(children)`, `Col(children)`, `Box(child, frame)` with
 `Frame(padding:, border:, style:)`, and `Spacer`.
 
+## Lists and tables
+
+- `list(items, selected, rows, focus)`: the items that fit in `rows` lines, one line each, with the item at
+  `selected` in `focus` (reverse when left out). A longer list scrolls to keep the selected item in the middle.
+- `table(cells, widths)`: the lines of a table, one `Node` for each row of `cells`. Each column is as wide as its
+  widest cell, or `widths[i]`; longer text is cut, and one space separates the columns.
+
+The lines of a table go into `col` for a plain table, or into `list` to select a row:
+
+```ruby
+def view(files: Files) -> TUI.Node
+  lines = TUI.table(files.rows.map { |f| [f.name, "#{f.size}"] })
+  header = TUI.text("name, size", style: TUI.Style(bold: true))
+  TUI.col([header, TUI.list(lines, files.selected, files.height - 1)])
+end
+```
+
+The model keeps `selected` (moved by the arrow keys in `update`) and the height (from `Event.Resize`).
+
 ## Layout
 
 `TUI.layout(node, width, height)` gives the cells of a tree on a screen of that size, with no terminal: a list of

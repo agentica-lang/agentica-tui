@@ -6,6 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- `TUI.list(items, selected, rows)`, a list that marks and scrolls to its selected item, and `TUI.table(cells)`, the
+  aligned lines of a table.
+- `TUI.Raw.program` puts the screen's input and output modes back when it ends.
 - `TUI.render` takes the last `Grid` it gave and writes only the changed cells; `TUI.program` uses it, so a
   frame no longer clears the screen. `TUI.diff` compares two grids.
 - `TUI.run(app)` opens the terminal and runs the Elm loop; ticks (`Sub.Tick`) and commands in tasks (`Cmd.Run`).

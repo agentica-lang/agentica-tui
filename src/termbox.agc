@@ -40,6 +40,12 @@ extern "termbox2"
   def tui_paste_copy(screen: Screen, dest: C.Pointer, room: C.Int64) -> C.Int64
 end
 
+## The input and output modes of the screen, as termbox2 values, for `restore_modes`.
+struct Modes
+  input: Int
+  output: Int
+end
+
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
 ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened (no terminal, one
 ## already open), or `error("task crashed: ...")` when the block stops with a runtime error.
@@ -143,6 +149,21 @@ def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> R
   check("set_input_mode", tui_set_input_mode(screen, Ev.input_mode_value(mode, mouse)))
 end
 
+## The modes the screen has now.
+def modes(screen: Screen) -> Result[Modes]
+  input = tui_set_input_mode(screen, TB_CURRENT)
+  try check("set_input_mode", input)
+  output = tui_set_output_mode(screen, TB_CURRENT)
+  try check("set_output_mode", output)
+  ok(Modes(input: input, output: output))
+end
+
+## Sets the modes back to `modes`.
+def restore_modes(screen: Screen, modes: Modes) -> Result[Void]
+  try check("set_input_mode", tui_set_input_mode(screen, modes.input))
+  check("set_output_mode", tui_set_output_mode(screen, modes.output))
+end
+
 ## Sets how colors are sent (`Normal` at the start).
 def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void]
   check("set_output_mode", tui_set_output_mode(screen, St.output_mode_value(mode)))
@@ -152,6 +173,8 @@ private
 
 # termbox2.h return values.
 TB_OK = 0
+# The mode argument that reads the mode instead of setting it (TB_INPUT_CURRENT, TB_OUTPUT_CURRENT).
+TB_CURRENT = 0
 TB_ERR_NO_EVENT = -6
 TB_ERR_NOT_INIT = -8
 # struct tb_event: uint8_t type, uint8_t mod, uint16_t key, uint32_t ch, then int32_t w, h, x and y.
