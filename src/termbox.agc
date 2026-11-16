@@ -8,6 +8,7 @@ import Ev from "event"
 import Gr from "grid"
 import St from "style"
 import View from "view"
+import Width from "width"
 
 extern "termbox2"
   ## The open terminal. Closing it (`open` does) restores the terminal; so does the end of the program, a crash too.
@@ -22,6 +23,7 @@ extern "termbox2"
   def tui_clear(screen: Screen, fg: C.Int64, bg: C.Int64) -> C.Int32
   def tui_present(screen: Screen) -> C.Int32
   def tui_set_cell(screen: Screen, x: C.Int32, y: C.Int32, ch: C.UInt32, fg: C.Int64, bg: C.Int64) -> C.Int32
+  def tui_set_cluster(screen: Screen, x: C.Int32, y: C.Int32, text: C.String, fg: C.Int64, bg: C.Int64) -> C.Int32
   def tui_print(
     screen: Screen,
     x: C.Int32,
@@ -75,13 +77,16 @@ def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void]
   check("clear", tui_clear(screen, fg, bg))
 end
 
-## Sets the cell at column x, row y (from 0) to one character.
+## Sets the cell at column x, row y (from 0) to one character, and the zero-width ones that go on it (combining
+## marks, joiners), at most 32 in all.
 def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
-  return error("tui: set_cell needs one character: #{char.inspect}") if char.length != 1
+  return error("tui: set_cell needs one character: #{char.inspect}") if not cluster?(char)
 
   fg = try St.fg_value(style)
   bg = try St.bg_value(style)
-  check("set_cell", tui_set_cell(screen, x, y, char.code, fg, bg))
+  return check("set_cell", tui_set_cell(screen, x, y, char.code, fg, bg)) if char.length == 1
+
+  check("set_cell", tui_set_cluster(screen, x, y, char, fg, bg))
 end
 
 ## Writes text from column x, row y; what goes past the right edge is cut. Gives the width of the text in columns.
@@ -234,6 +239,13 @@ def read_event(buffer: C.Pointer) -> Ev.Raw
     x: Native.get_int32(buffer, 16),
     y: Native.get_int32(buffer, 20),
   )
+end
+
+# One character and only zero-width ones after it.
+def cluster?(char: String) -> Bool
+  return false if char.empty? or char.length > Width.CELL_CHARS
+
+  char.split("").drop(1).all? { |c| Width.char(c) == 0 }
 end
 
 def cleared(screen: Screen) -> Result[Gr.Grid]

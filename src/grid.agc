@@ -92,7 +92,7 @@ def drawn(line: List[Glyph], cell: View.Cell) -> List[Glyph]
   # A covered cell (`""`, which `diff` gives) has no width of its own.
   return out if cell.x + 1 >= line.size or cell.char == ""
 
-  return out.set(cell.x + 1, Glyph(char: "", style: cell.style)) if Width.char(cell.char) == 2
+  return out.set(cell.x + 1, Glyph(char: "", style: cell.style)) if Width.cell(cell.char) == 2
 
   return out.set(cell.x + 1, BLANK) if out[cell.x + 1].char == ""
 

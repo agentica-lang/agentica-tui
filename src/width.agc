@@ -6,6 +6,8 @@
 import Table from "width_table"
 
 FIRST_TABLED = 0x300
+# The most characters of one cell: TUI_CLUSTER_MAX of native/tui.c.
+CELL_CHARS = 32
 
 def char(c: String) -> Int
   code = c.code
@@ -15,6 +17,13 @@ def char(c: String) -> Int
 end
 
 def text(s: String) -> Int = s.split("").map { |c| char(c) }.sum
+
+## The columns of one cell's text: a character and the zero-width ones on it.
+def cell(s: String) -> Int
+  return char(s) if s.length == 1
+
+  text(s)
+end
 
 ## The longest start of `s` that fits in `columns`, and the rest.
 def cut(s: String, columns: Int) -> List[String]

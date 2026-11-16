@@ -86,6 +86,7 @@ when the size differs.
 ## Widths
 
 Widths are terminal columns, from the `wcwidth` table of glibc 2.41 (`src/width_table.agc`, made by
-`scripts/width_table.py`): a wide character takes two columns, a combining mark none. termbox2 draws with the
-`wcwidth` of the glibc it runs on, so on another glibc a character may take another width on screen than in the
-layout.
+`scripts/width_table.py`): a wide character takes two columns, a combining mark none. A combining mark or a
+zero-width joiner is drawn on the cell before it, with that character (`e` and U+0301 show as one `é`). termbox2
+draws with the `wcwidth` of the glibc it runs on, so on another glibc a character may take another width on screen
+than in the layout.

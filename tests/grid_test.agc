@@ -4,6 +4,8 @@ import View from "../src/view"
 
 WIDTH = 12
 HEIGHT = 5
+# U+0301 COMBINING ACUTE ACCENT, alone.
+ACUTE = "́"
 
 def main() -> Void
   Test.run([
@@ -36,6 +38,23 @@ def main() -> Void
       new = Gr.of(text("中"), 4, 1)
       Test.eq(Gr.diff(old, new).map { |cell| "#{cell.x} #{cell.char}" }, ["0 中", "1 "])
     end,
+    Test.test("a combining mark joins the cell before it, in text and in a line, and keeps the columns") do
+      decomposed = "cafe#{ACUTE} x"
+      try Test.eq(chars(Gr.of(text(decomposed), 7, 1)), ["c", "a", "f", "e#{ACUTE}", " ", "x", " "])
+      try Test.eq(chars(Gr.of(View.line([View.span("e"), View.span("#{ACUTE}!")]), 3, 1)), ["e#{ACUTE}", "!", " "])
+      try Test.eq(chars(Gr.of(text("#{ACUTE}a"), 2, 1)), ["a", " "])
+      Test.eq(chars(Gr.of(text("中#{ACUTE}b"), 4, 1)), ["中#{ACUTE}", "", "b", " "])
+    end,
+    Test.test("a joiner stays on the emoji before it, and the diff writes the whole cell") do
+      woman = String.from_code(0x1F469)
+      laptop = String.from_code(0x1F4BB)
+      joiner = String.from_code(0x200D)
+      try Test.eq(chars(Gr.of(text("#{woman}#{joiner}#{laptop}"), 4, 1)), ["#{woman}#{joiner}", "", laptop, ""])
+      old = Gr.of(text("cafe"), 4, 1)
+      new = Gr.of(text("cafe#{ACUTE}"), 4, 1)
+      try Test.eq(Gr.diff(old, new).map { |cell| "#{cell.x} #{cell.char}" }, ["3 e#{ACUTE}"])
+      Test.eq(Gr.apply(old, Gr.diff(old, new)), new)
+    end,
   ])
 end
 
@@ -54,5 +73,6 @@ def frames() -> List[View.Node]
     View.row([View.text("a"), View.spacer(), View.text("中")]),
     View.box(View.text("styled", St.Style(fg: St.Color.Red)), padding: 1, style: St.Style(bg: St.Color.Blue)),
     View.text("a long line that wraps over the whole screen and past its end, cut at the bottom"),
+    View.text("cafe#{ACUTE} 中#{ACUTE}"),
   ]
 end
