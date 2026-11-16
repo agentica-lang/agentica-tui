@@ -23,7 +23,7 @@ The `native` job of CI builds `native/` again and fails unless the build is the 
 1. `make native` rebuilds the library in place for local work. Do not commit it: it may need a newer glibc.
 2. Push the change. The `native` job fails and uploads its build.
 3. `gh run download RUN -n libtermbox2-linux-x86_64`, copy that file to `native/linux/libtermbox2.so`, and update
-   its sha256 here, in the README and in the CHANGELOG.
+   its sha256 here and in the CHANGELOG.
 4. Push again: CI is green when the committed file is the build of `native/`.
 
 `make native-verify` on a machine whose gcc or glibc differs from ubuntu-22.04 fails and prints both sha256: only

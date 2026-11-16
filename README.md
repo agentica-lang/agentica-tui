@@ -14,8 +14,7 @@ Needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is n
 tui = { git = "https://github.com/agentica-lang/agentica-tui", ref = "COMMIT" }
 ```
 
-The package ships `native/linux/libtermbox2.so`, built by CI. At this version its sha256 is
-`45123ec3703f195630f4b54a8ef8f9cd97b99c6f3ebd2e05c1be060330189bab`.
+The package ships `native/linux/libtermbox2.so`, built by CI; see [Native library](docs/native.md).
 
 ## Example
 
