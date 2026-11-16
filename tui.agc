@@ -27,7 +27,9 @@
 ## end
 ## ```
 
+import Bd from "src/backend"
 import Ev from "src/event"
+import Fk from "src/fake"
 import Gr from "src/grid"
 import Pg from "src/program"
 import St from "src/style"
@@ -40,6 +42,8 @@ export Pg.App
 export Pg.Step
 export Pg.Cmd
 export Pg.Sub
+export Bd.Backend
+export Bd.Modes
 export Ev.Event
 export Ev.Key
 export Ev.Mouse
@@ -68,6 +72,26 @@ export View.list
 export View.list_first
 export Wg.table
 
+## A fake terminal for the tests of a program: run it with `Raw.program(Testing.backend(fake), app)`, send it events,
+## and read back what the program drew.
+module Testing
+  type Fake = Fk.Fake
+
+  ## A call of the program on the fake terminal.
+  type Call = Fk.Call
+
+  ## A fake terminal of `width` by `height`; send events on its `events`, and close them to end the terminal.
+  def fake(width: Int, height: Int) -> Fake = Fk.new(width, height)
+
+  def backend(fake: Fake) -> Bd.Backend = Fk.backend(fake)
+
+  ## The calls made since the last time, in order.
+  def calls(fake: Fake) -> List[Call] = Fk.calls(fake)
+
+  ## The text of each row after `calls`, from the last clear.
+  def rows(fake: Fake, calls: List[Call]) -> List[String] = Fk.rows(fake, calls)
+end
+
 ## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.
 module Raw
   ## The open terminal.
@@ -84,8 +108,12 @@ module Raw
   ## `error("task crashed: ...")` when the block stops with a runtime error.
   def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tb.open(body)
 
-  ## Runs `app` on an open screen, as `run` does, and gives the screen back the modes it had before.
-  def program[M, Msg](screen: Screen, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(screen, app)
+  ## The open screen as a backend of `program`.
+  def backend(screen: Screen) -> Bd.Backend = Tb.backend(screen)
+
+  ## Runs `app` on a backend (an open screen, or a fake one), as `run` does, and gives the terminal back the modes it
+  ## had before.
+  def program[M, Msg](backend: Bd.Backend, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(backend, app)
 
   ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.
   def width(screen: Screen) -> Int = Tb.width(screen)

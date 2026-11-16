@@ -43,6 +43,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking:** `TUI.Raw.program` takes a `TUI.Backend` (`TUI.Raw.backend(screen)` for an open screen) instead of
+  the screen; the program loop reaches the terminal only through that record, so `TUI.Testing.fake` runs a program in
+  a test with scripted events and the calls it made.
 - In a `col`, the lists fill the free lines first and the spacers share what they leave (was an even share).
 - **Breaking:** the terminal by hand moves to `TUI.Raw`: `open`, `width`, `height`, `clear`, `set_cell`, `write`,
   `present`, `render`, `diff`, `program`, `set_cursor`, `hide_cursor`, `poll_event`, `peek_event`,

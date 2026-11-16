@@ -1,6 +1,7 @@
 ## The Elm loop: a model, messages, and effects as values. `update` and `view` are pure; `program` alone draws,
-## reads the terminal, keeps time and runs the commands.
+## reads the terminal (a backend), keeps time and runs the commands.
 
+import Bd from "backend"
 import Ev from "event"
 import Gr from "grid"
 import St from "style"
@@ -44,27 +45,25 @@ end
 
 ## Opens the terminal, runs `app` on it with `program` and closes it. Gives the last model, or the error once the
 ## terminal is restored.
-def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(screen, app) })
+def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(Tb.backend(screen), app) })
 
-## Runs `app` on an open screen until a command is `Cmd.Quit`, and gives the last model. After the messages that
+## Runs `app` on a terminal backend until a command is `Cmd.Quit`, and gives the last model. After the messages that
 ## came together it draws `view(model)`. Gives an error when the terminal fails or `update`, `view`,
 ## `subscriptions` or a `Cmd.Run` function stops with a runtime error. A key typed after the quit may be lost. The
-## screen gets back the modes it had before.
-def program[M, Msg](screen: Tb.Screen, app: App[M, Msg]) -> Result[M]
-  before = try Tb.modes(screen)
-  try Tb.set_input_mode(screen, app.input, mouse: app.mouse)
-  try Tb.set_output_mode(screen, app.output)
+## terminal gets back the modes it had before.
+def program[M, Msg](backend: Bd.Backend, app: App[M, Msg]) -> Result[M]
+  restore = try backend.set_modes.call(Bd.Modes(input: app.input, mouse: app.mouse, output: app.output))
   inbox: Channel[Input[Msg]] = Channel.new(INBOX)
   stop: Channel[Bool] = Channel.new(1)
-  reader = Task.spawn do read_events(screen, inbox, stop) end
+  reader = Task.spawn do read_events(backend, inbox, stop) end
   # The loop runs in a task of its own so that a crash in the app's functions comes back as an error and the
   # reader still stops.
-  result = Task.await(Task.spawn do loop(screen, app, inbox) end)
+  result = Task.await(Task.spawn do loop(backend, app, inbox) end)
   # Not a cancel: a cancelled task's wait may still run in termbox2 after the await, take a key from the caller and
   # hold the screen open.
   stop.close
   Task.await(reader)
-  restored = Tb.restore_modes(screen, before)
+  restored = restore.call()
   return result if not result.ok?
 
   try restored
@@ -89,7 +88,7 @@ enum Input[Msg]
   Failed(String)
 end
 
-def loop[M, Msg](screen: Tb.Screen, app: App[M, Msg], inbox: Channel[Input[Msg]]) -> Result[M]
+def loop[M, Msg](backend: Bd.Backend, app: App[M, Msg], inbox: Channel[Input[Msg]]) -> Result[M]
   step = Step(model: app.model, cmds: app.cmds)
   shown: Optional[Gr.Grid] = none
   # When each tick period is due next, by period.
@@ -98,7 +97,7 @@ def loop[M, Msg](screen: Tb.Screen, app: App[M, Msg], inbox: Channel[Input[Msg]]
     return ok(step.model) if step.cmds.any?(&quit?)
 
     start(step.cmds, inbox)
-    drawn = try Tb.render(screen, app.view.call(step.model), shown)
+    drawn = try Bd.render(backend, app.view.call(step.model), shown)
     shown = some(drawn)
     subs = app.subscriptions.call(step.model)
     dues = scheduled(subs, dues, Time.monotonic_ms())
@@ -140,9 +139,9 @@ def run_work[Msg](work: Fn[Msg], inbox: Channel[Input[Msg]]) -> Void
   _ = inbox.send(input, SEND_MS)
 end
 
-def read_events[Msg](screen: Tb.Screen, inbox: Channel[Input[Msg]], stop: Channel[Bool]) -> Void
+def read_events[Msg](backend: Bd.Backend, inbox: Channel[Input[Msg]], stop: Channel[Bool]) -> Void
   while not stop.closed?
-    case Tb.peek_event(screen, READ_MS)
+    case backend.next_event.call(READ_MS)
       ok(found) ->
         case found
           some(event) -> _ = inbox.send(Input.Event(event), SEND_MS)

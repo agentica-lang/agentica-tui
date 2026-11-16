@@ -16,7 +16,7 @@ end
 
 def both(screen: TUI.Raw.Screen) -> Result[Void]
   app = TUI.App(model: nil, update: &update, view: &view, subscriptions: &subscriptions, mouse: true)
-  _ = try TUI.Raw.program(screen, app)
+  _ = try TUI.Raw.program(TUI.Raw.backend(screen), app)
   _ = try TUI.Raw.render(screen, TUI.text("back"))
   _ = try TUI.Raw.poll_event(screen)
   ok()

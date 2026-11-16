@@ -1,0 +1,91 @@
+import Bd from "../src/backend"
+import Ev from "../src/event"
+import Fk from "../src/fake"
+import Pg from "../src/program"
+import View from "../src/view"
+
+WAIT_MS = 5000
+
+enum Msg
+  Key(Ev.Event)
+  Tick
+  Done
+end
+
+def main() -> Void
+  Test.run([
+    Test.test("keys reach update, the view is drawn and a quit gives the model and restores the modes") do
+      fake = Fk.new(10, 2)
+      runner = Task.spawn do Pg.program(Fk.backend(fake), counter([])) end
+      try sent(fake, [char("a"), char("a")])
+      calls = try seen(fake, [], ->(rows: List[String]) { rows[0] == "2 keys" })
+      try sent(fake, [char("q")])
+      try Test.eq(Task.await(runner), ok(2))
+      calls = calls + Fk.calls(fake)
+      try Test.eq(calls.first, Fk.Call.Modes(Bd.Modes()))
+      Test.eq(calls.last, Fk.Call.Restored)
+    end,
+    Test.test("a resize draws the whole screen again") do
+      fake = Fk.new(10, 2)
+      runner = Task.spawn do Pg.program(Fk.backend(fake), counter([])) end
+      first = try seen(fake, [], ->(rows: List[String]) { rows[0] == "0 keys" })
+      try sent(fake, [Ev.Event.Resize(10, 2)])
+      calls = try seen(fake, first, ->(rows: List[String]) { rows[0] == "1 keys" })
+      try sent(fake, [char("q")])
+      _ = Task.await(runner)
+      Test.eq(calls.select { |call| call == Fk.Call.Cleared }.size, 2)
+    end,
+    Test.test("ticks come while the subscriptions ask for them, and a command gives its message") do
+      fake = Fk.new(10, 1)
+      try Test.eq(Pg.program(Fk.backend(fake), counter([Pg.Sub.Tick(10, Msg.Tick)])), ok(3))
+      app = counter([]).with(cmds: [Pg.Cmd.Run(-> { Msg.Done })])
+      Test.eq(Pg.program(Fk.backend(fake), app), ok(100))
+    end,
+    Test.test("a terminal that is gone ends the program with an error, and the modes are still restored") do
+      fake = Fk.new(10, 1)
+      fake.events.close
+      try Test.eq(Pg.program(Fk.backend(fake), counter([])), error("tui: the fake terminal is closed"))
+      Test.eq(Fk.calls(fake).last, Fk.Call.Restored)
+    end,
+  ])
+end
+
+# Counts the keys and the ticks: q quits, the third tick quits, and Done quits with 100.
+def counter(more: List[Pg.Sub[Msg]]) -> Pg.App[Int, Msg]
+  Pg.App(
+    model: 0,
+    update: &update,
+    view: ->(count: Int) { View.text("#{count} keys") },
+    subscriptions: ->(_count: Int) { [Pg.Sub.Events(->(event) { Msg.Key(event) })] + more },
+  )
+end
+
+def update(count: Int, msg: Msg) -> Pg.Step[Int, Msg]
+  case msg
+    Msg.Key(Ev.Event.Char("q", _)) -> Pg.Step(model: count, cmds: [Pg.Cmd.Quit])
+    Msg.Key(_) -> Pg.Step(model: count + 1)
+    Msg.Tick if count == 2 -> Pg.Step(model: 3, cmds: [Pg.Cmd.Quit])
+    Msg.Tick -> Pg.Step(model: count + 1)
+    Msg.Done -> Pg.Step(model: 100, cmds: [Pg.Cmd.Quit])
+  end
+end
+
+def char(c: String) -> Ev.Event = Ev.Event.Char(c, Ev.Mods())
+
+def sent(fake: Fk.Fake, events: List[Ev.Event]) -> Result[Void]
+  for event in events
+    try fake.events.send(event, WAIT_MS)
+  end
+
+  ok()
+end
+
+# The calls after `before` until the screen shows what `done` wants.
+def seen(fake: Fk.Fake, before: List[Fk.Call], done: Fn[List[String], Bool]) -> Result[List[Fk.Call]]
+  calls = before
+  while not done.call(Fk.rows(fake, calls))
+    calls = calls.push(try fake.calls.recv(WAIT_MS))
+  end
+
+  ok(calls)
+end
