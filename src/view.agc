@@ -43,16 +43,21 @@ struct Cell
   style: St.Style
 end
 
+## Text in `style`.
 def text(text: String, style: St.Style = St.Style()) -> Node = Node.Text(text, style)
 
+## Children side by side.
 def row(children: List[Node]) -> Node = Node.Row(children)
 
+## Children one under another.
 def col(children: List[Node]) -> Node = Node.Col(children)
 
+## `child` in a frame: `padding` cells (a negative one is 0), a border, and the style that fills it.
 def box(child: Node, padding: Int = 0, border: Border = Border.None, style: St.Style = St.Style()) -> Node
   Node.Box(child, Frame(padding: padding, border: border, style: style))
 end
 
+## Free room in a row or a column.
 def spacer() -> Node = Node.Spacer
 
 ## The cells of `node` on a screen of `width` by `height`, in drawing order.

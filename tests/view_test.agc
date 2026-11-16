@@ -47,19 +47,20 @@ def main() -> Void
       Test.eq(grid(cells, 4, 1), ["abc "])
     end,
     Test.test("deep nesting is laid out once per level") do
-      deep = (0...20).to_a.reduce(View.text("deep")) do |child, i|
-        case i % 2
-          0 -> View.row([child, View.spacer()])
-          _ -> View.col([child])
-        end
-      end
-
+      deep = (0...20).to_a.reduce(View.text("deep")) do |child, i| nest(child, i) end
       Test.eq(grid(View.layout(deep, 6, 1), 6, 1), ["deep  "])
     end,
   ])
 end
 
 def width(char: String) -> Int = Width.char(char)
+
+# A row with a spacer around `child` on even levels, a column on odd ones.
+def nest(child: View.Node, level: Int) -> View.Node
+  return View.row([child, View.spacer()]) if level % 2 == 0
+
+  View.col([child])
+end
 
 # The lines a terminal shows for `cells`; a wide character covers the column after it.
 def grid(cells: List[View.Cell], w: Int, h: Int) -> List[String]
