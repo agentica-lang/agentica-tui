@@ -124,8 +124,14 @@ def render(screen: Screen, node: View.Node, last: Optional[Gr.Grid] = none) -> R
   ok(next)
 end
 
-## Shows the back buffer on the terminal: nothing drawn appears before this.
-def present(screen: Screen) -> Result[Void] = check("present", tui_present(screen))
+## Shows the back buffer on the terminal: nothing drawn appears before this. A write the terminal cut short is tried
+## once more.
+def present(screen: Screen) -> Result[Void]
+  # A short write (an EINTR during a large redraw) keeps termbox2's buffer, so a second try writes all of it again.
+  return ok() if tui_present(screen) >= TB_OK
+
+  check("present", tui_present(screen))
+end
 
 ## Shows the cursor at column x, row y.
 def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = check("set_cursor", tui_set_cursor(screen, x, y))
