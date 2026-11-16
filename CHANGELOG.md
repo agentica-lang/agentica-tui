@@ -24,7 +24,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
 - termbox2 v2.5.0, vendored, built into `libtermbox2`; the package ships it prebuilt for Linux x86_64 (glibc 2.33 or
-  later), so `agentica add` and `agentica install` work with no C compiler. sha256 `3ffbd11979bca2fa80281f3caf1302ecde2544ee379769e933ce3e2bb8a3883b`; CI checks it is byte
+  later), so `agentica add` and `agentica install` work with no C compiler. sha256 `2471dceb0faebe3d4ddac543aeb1e32872d97e1c58e6ec8fd3c234c7a2a5621d`; CI checks it is byte
   for byte a fresh build on ubuntu-22.04.
 
 ### Changed
