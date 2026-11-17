@@ -108,10 +108,10 @@ def main() -> Void
       }
 
       runner = Task.spawn do Pg.program(Fk.backend(fake), recorder().with(cmds: [Pg.Cmd.Suspend(work)])) end
-      calls = try seen(fake, [], ->(rows: List[String]) { rows.size == 3 and rows.join("").include?("Resize") })
+      calls = try seen(fake, [], ->(rows: List[String]) { rows.size == 3 and rows.join("") == "Done" })
       try sent(fake, [char("q")])
       got = try Task.await(runner)
-      try Test.eq(got.take(2), ["Done", "Key(Event.Resize(8, 3))"])
+      try Test.eq(got.take(2), ["Key(Event.Resize(8, 3))", "Done"])
       suspended = calls.index(Fk.Call.Suspended).unwrap_or(-1)
       resumed = calls.index(Fk.Call.Resumed).unwrap_or(-1)
       cleared = calls.drop(resumed).index(Fk.Call.Cleared)
@@ -123,7 +123,16 @@ def main() -> Void
       result = Pg.program(Fk.backend(fake), app)
       try Test.assert(not result.ok?, "an error")
       calls = Fk.calls(fake)
-      Test.eq([calls[1], calls[2], calls.last], [Fk.Call.Suspended, Fk.Call.Resumed, Fk.Call.Restored])
+      try Test.eq([calls[1], calls[2], calls.last], [Fk.Call.Suspended, Fk.Call.Resumed, Fk.Call.Restored])
+      lost = Fk.backend(fake).with(resume: -> { error("gone") })
+      case Pg.program(lost, app)
+        ok(_) -> Test.assert(false, "an error")
+        error(e) ->
+          Test.assert(
+            e.message.include?("RUNTIME-INDEX-OUT-OF-RANGE") and e.message.end_with?("; then gone"),
+            e.message,
+          )
+      end
     end,
     Test.test("a terminal that is gone ends the program with an error, and the modes are still restored") do
       fake = Fk.new(10, 1)

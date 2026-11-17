@@ -449,17 +449,36 @@ class PtyTest(unittest.TestCase):
             given_back = term.output[entered:prompt]
             for mode in (LEAVE_SCREEN, b"\x1b[?2004l", b"\x1b[?1000l"):
                 self.assertIn(mode, given_back)
+            # Ctrl+C goes to the TUI, which the shell's own session leaves out; the line still reaches the shell.
+            term.send(b"\x03")
             term.send(b"hello there\n")
             term.wait_for(b"\x1b[?2004h", prompt)
-            term.wait_for_row(0, "back hello there")
-            for mode in (ENTER_SCREEN, b"\x1b[?1000h"):
+            term.wait_for_row(0, "back hello there, ctrl+c true")
+            for mode in (ENTER_SCREEN, b"\x1b[?1000h", b"\x1b[38;2;10;20;30m"):
                 self.assertIn(mode, term.output[prompt:])
+            # A paste of q is text, not the quit key: the paste marks and their reader are back.
+            term.send(b"\x1b[200~q\x1b[201~")
+            term.wait_for_row(0, "pasted q")
             term.send(b"q")
 
             self.assertEqual(term.finish(), 0)
-            self.assertIn(b"last back hello there", term.output[term.output.rindex(LEAVE_SCREEN) :])
+            self.assertIn(b"last pasted q", term.output[term.output.rindex(LEAVE_SCREEN) :])
             with open(line_file) as written:
                 self.assertEqual(written.read(), "hello there")
+            self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+
+    def test_the_terminal_modes_a_suspended_program_leaves_are_not_kept(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            line_file = os.path.join(folder, "line")
+            term = self.start("suspend.agc", {"TUI_CHILD_FILE": line_file, "TUI_CHILD_STTY": "-echo"})
+            term.wait_for_row(0, "ready")
+            term.send(b"e")
+            term.wait_for(b"child> ")
+            term.send(b"quiet\n")
+            term.wait_for_row(0, "back quiet")
+            term.send(b"q")
+
+            self.assertEqual(term.finish(), 0)
             self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
     def test_alt_bracket_and_a_letter_keep_the_letter(self) -> None:

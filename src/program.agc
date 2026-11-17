@@ -107,7 +107,7 @@ def loop[M, Msg](backend: Bd.Backend, app: App[M, Msg], inbox: Channel[Input[Msg
     for cmd in step.cmds
       case cmd
         Cmd.Suspend(work) ->
-          try suspended(backend, work, inbox)
+          try run_suspended(backend, work, inbox)
           shown = none
         _ -> next
       end
@@ -149,19 +149,29 @@ def start[Msg](cmds: List[Cmd[Msg]], inbox: Channel[Input[Msg]]) -> Void
   end
 end
 
-# The terminal is taken again whatever the work does; its message, and a `Resize` when the size changed, wait in the
-# inbox for the next round of the loop.
-def suspended[Msg](backend: Bd.Backend, work: Fn[Msg], inbox: Channel[Input[Msg]]) -> Result[Void]
+# The terminal is taken again whatever the work does. A `Resize`, when the size changed, then the work's message wait
+# in the inbox for the next round of the loop.
+def run_suspended[Msg](backend: Bd.Backend, work: Fn[Msg], inbox: Channel[Input[Msg]]) -> Result[Void]
   width = backend.width.call()
   height = backend.height.call()
   try backend.suspend.call()
   outcome = Task.await(Task.spawn do ok(work.call()) end)
-  try backend.resume.call()
-  msg = try outcome
-  try inbox.send(Input.App(msg), SEND_MS)
-  return ok() if backend.width.call() == width and backend.height.call() == height
+  resumed = backend.resume.call()
+  case outcome
+    ok(_) -> try resumed
+    error(e) ->
+      case resumed
+        ok(_) -> return error(e.message)
+        error(lost) -> return error("#{e.message}; then #{lost.message}")
+      end
+  end
 
-  inbox.send(Input.Event(Ev.Event.Resize(backend.width.call(), backend.height.call())), SEND_MS)
+  msg = outcome.unwrap!
+  if backend.width.call() != width or backend.height.call() != height
+    try inbox.send(Input.Event(Ev.Event.Resize(backend.width.call(), backend.height.call())), SEND_MS)
+  end
+
+  inbox.send(Input.App(msg), SEND_MS)
 end
 
 # The work runs in a task of its own so that a crash comes back as an error, not a crash of the loop.

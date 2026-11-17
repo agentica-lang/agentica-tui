@@ -61,6 +61,10 @@ static int tui_opened;
 static int tui_suspended;
 static int tui_saved_input;
 static int tui_saved_output;
+/* The terminal modes of before tui_init: a resume's tb_init would take the
+ * ones the other program left as the modes to put back at the end. */
+static struct termios tui_first_tios;
+static int tui_has_first_tios;
 
 /* The address that stands for the open terminal: the Agentica resource Screen
  * needs a non-NULL pointer. */
@@ -397,6 +401,19 @@ int tui_init(void **screen) {
     return rv;
 }
 
+/* Under tui_lock, while suspended: puts back the terminal modes of before
+ * tui_init. */
+static void restore_first_tios(void) {
+    if (!tui_has_first_tios) {
+        return;
+    }
+    int fd = open("/dev/tty", O_RDWR | O_NOCTTY);
+    if (fd >= 0) {
+        tcsetattr(fd, TCSAFLUSH, &tui_first_tios);
+        close(fd);
+    }
+}
+
 /* The free function of the resource Screen: it restores the terminal and the
  * locale. The VM calls it at Native.close, or at the end of the run when the
  * program did not close the screen (a crash too), after any call that holds
@@ -409,8 +426,11 @@ void tui_shutdown(void *screen) {
         if (!tui_suspended) {
             send_now("\x1b[?2004l");
             tb_shutdown();
+        } else {
+            restore_first_tios();
         }
         tui_suspended = 0;
+        tui_paste_draining = 0;
         free(tui_paste_text);
         tui_paste_text = NULL;
         tui_paste_len = 0;
@@ -433,9 +453,13 @@ int tui_suspend(void *screen) {
     } else if (tui_opened) {
         tui_saved_input = tb_set_input_mode(TB_INPUT_CURRENT);
         tui_saved_output = tb_set_output_mode(TB_OUTPUT_CURRENT);
+        tui_first_tios = global.orig_tios;
+        tui_has_first_tios = global.has_orig_tios;
         send_now("\x1b[?2004l");
         rv = tb_shutdown();
         tui_suspended = 1;
+        tui_paste_scanned = 0;
+        tui_paste_draining = 0;
     }
     pthread_mutex_unlock(&tui_lock);
     return rv;
@@ -453,6 +477,8 @@ int tui_resume(void *screen) {
     } else if (tui_opened) {
         rv = tb_init();
         if (rv == TB_OK) {
+            global.orig_tios = tui_first_tios;
+            global.has_orig_tios = tui_has_first_tios;
             tb_set_func(TB_FUNC_EXTRACT_PRE, extract_pre);
             tb_set_input_mode(tui_saved_input);
             tb_set_output_mode(tui_saved_output);

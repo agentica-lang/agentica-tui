@@ -6,7 +6,7 @@ vendored) through the Agentica FFI.
 
 ## Install
 
-Needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet: pin a commit of
+Needs Agentica 0.32.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet: pin a commit of
 `main` in `agentica.toml`:
 
 ```toml

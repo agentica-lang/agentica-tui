@@ -6,7 +6,7 @@ description: Install the package, write a first program and run it.
 
 ## Install
 
-agentica-tui needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
+agentica-tui needs Agentica 0.32.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT

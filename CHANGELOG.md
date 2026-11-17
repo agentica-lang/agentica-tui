@@ -74,7 +74,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - **Breaking:** `TUI.program` takes a `TUI.App`; `update` gets your messages and gives `TUI.Step(model:, cmds:)`,
   and `Cmd.Quit` ends the loop (was `Step.Continue` and `Step.Quit`).
 - Layout and grids are about twice as fast on a 200x60 screen.
-- **Breaking:** needs Agentica 0.31.0 (was 0.20.0); an error of `TUI.open` and the other functions is an `Error`
+- **Breaking:** needs Agentica 0.32.0 (was 0.20.0); an error of `TUI.open` and the other functions is an `Error`
   record, so `error(e)` reads its text as `e.message`.
 
 ### Fixed
