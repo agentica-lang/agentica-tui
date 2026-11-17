@@ -31,8 +31,13 @@ end
 `Mods` has `alt`, `ctrl`, `shift` and `motion` (a mouse move with a button down).
 
 A lone Escape byte is read as `Key.Escape` (`InputMode.Esc`, the default) or as Alt with the next key
-(`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`. Alt+Enter is `Key(Key.Enter, Mods(alt: true))` in both
-modes.
+(`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`. In `InputMode.Esc`, Escape read together with Enter,
+Backspace or a printable ASCII character is that key with Alt, as a terminal sends Alt+Enter, Alt+Backspace or
+Alt+B: `Key(Key.Enter, Mods(alt: true))`, `Char("b", Mods(alt: true))`. The trade-off: Escape and a key typed so
+fast that they arrive in one read are Alt and that key too.
+
+A terminal key (an arrow, Home, Delete...) keeps the Ctrl of its escape sequence: Ctrl+Left is
+`Key(Key.Left, Mods(ctrl: true))`. Enter, Tab, Backspace and Escape never carry Ctrl.
 
 ## Mouse
 

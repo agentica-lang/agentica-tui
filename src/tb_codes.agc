@@ -152,7 +152,7 @@ def key_event(raw: Raw) -> Ev.Event
   held = mods(raw.mod)
   # termbox2 marks every ASCII control byte with Ctrl: the ones with a name of their own (Enter, Tab...) are typed
   # without it. A terminal key (Left, Home...) keeps the Ctrl of its escape sequence.
-  return Ev.Event.Key(found, held.with(ctrl: false)) if NAMED_CONTROLS.get(raw.key).some?
+  return Ev.Event.Key(found, held.with(ctrl: false)) if NAMED_CONTROLS.key?(raw.key)
 
   Ev.Event.Key(found, held)
 end
