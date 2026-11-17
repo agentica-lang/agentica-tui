@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
+- In `InputMode.Esc`, Escape and a printable character or Backspace read together are that key with Alt (Alt+B,
+  Alt+Backspace), as Escape and Enter already were; Escape alone stays a key.
+- A terminal key keeps its Ctrl (Ctrl+Left is `Key(Left, Mods(ctrl: true))`).
+
 - Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
   are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
 - `TUI.line(spans)`, one line of styled `TUI.span`s that never wraps; `TUI.list(items, selected)`, a list that marks
