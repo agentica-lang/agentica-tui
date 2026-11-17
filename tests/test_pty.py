@@ -13,6 +13,7 @@ import re
 import select
 import struct
 import subprocess
+import tempfile
 import termios
 import time
 import unittest
@@ -65,7 +66,7 @@ def screen_rows(output: bytes, rows: int = 24, cols: int = 80) -> list[str]:
 class Terminal:
     """A program running on a new pty of 80x24 with TERM=xterm."""
 
-    def __init__(self, program: Path) -> None:
+    def __init__(self, program: Path, env: dict[str, str] | None = None) -> None:
         self.master, self.slave = os.openpty()
         set_size(self.slave, 24, 80)
         self.modes_before = termios.tcgetattr(self.slave)
@@ -76,7 +77,7 @@ class Terminal:
             stdin=self.slave,
             stdout=self.slave,
             stderr=self.slave,
-            env=dict(os.environ, TERM="xterm"),
+            env=dict(os.environ, TERM="xterm", **(env or {})),
             preexec_fn=self._own_terminal,
         )
 
@@ -134,8 +135,8 @@ class Terminal:
 
 
 class PtyTest(unittest.TestCase):
-    def start(self, fixture: str) -> Terminal:
-        terminal = Terminal(FIXTURES / fixture)
+    def start(self, fixture: str, env: dict[str, str] | None = None) -> Terminal:
+        terminal = Terminal(FIXTURES / fixture, env)
         self.addCleanup(terminal.close)
         return terminal
 
@@ -435,6 +436,31 @@ class PtyTest(unittest.TestCase):
         lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
         plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
         self.assertEqual(lines, ["peek none", f"Event.Key(Key.Escape, {plain})", f'Event.Char("b", {plain})'])
+
+    def test_a_suspend_gives_the_terminal_to_a_program_and_takes_it_back(self) -> None:
+        with tempfile.TemporaryDirectory() as folder:
+            line_file = os.path.join(folder, "line")
+            term = self.start("suspend.agc", {"TUI_CHILD_FILE": line_file})
+            term.wait_for_row(0, "ready")
+            entered = len(term.output)
+            term.send(b"e")
+            prompt = term.wait_for(b"child> ", entered)
+            # The main screen, no paste marks and no mouse while the program has the terminal.
+            given_back = term.output[entered:prompt]
+            for mode in (LEAVE_SCREEN, b"\x1b[?2004l", b"\x1b[?1000l"):
+                self.assertIn(mode, given_back)
+            term.send(b"hello there\n")
+            term.wait_for(b"\x1b[?2004h", prompt)
+            term.wait_for_row(0, "back hello there")
+            for mode in (ENTER_SCREEN, b"\x1b[?1000h"):
+                self.assertIn(mode, term.output[prompt:])
+            term.send(b"q")
+
+            self.assertEqual(term.finish(), 0)
+            self.assertIn(b"last back hello there", term.output[term.output.rindex(LEAVE_SCREEN) :])
+            with open(line_file) as written:
+                self.assertEqual(written.read(), "hello there")
+            self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
     def test_alt_bracket_and_a_letter_keep_the_letter(self) -> None:
         term = self.start("events.agc")

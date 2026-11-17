@@ -6,9 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- In both input modes, Escape and a printable ASCII character (but `[` and `O`, which start escape sequences) or
-  Backspace read together are that key with Alt (Alt+B, Alt+Backspace), as Escape and Enter already were; Escape
-  alone stays a key.
+- `Cmd.Suspend(work)` gives the terminal back while `work` runs another program on it (an editor) and takes it again
+  with the same modes; `TUI.Raw.suspend` and `resume` do it by hand, and `TUI.Testing` keeps `Suspended` and
+  `Resumed` calls.
+- In both input modes, Escape and a printable ASCII character (other than `[` and `O`, which start escape
+  sequences) or Backspace read together are that key with Alt (Alt+B, Alt+Backspace), as Escape and Enter already
+  were; Escape alone stays a key.
 - A terminal key keeps its Ctrl (Ctrl+Left is `Key(Left, Mods(ctrl: true))`).
 - Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
   are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
@@ -52,6 +55,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- **Breaking:** `TUI.Backend` has `suspend` and `resume`, which a backend built by hand gives; a `case` over `Cmd`
+  needs `Suspend`.
 - **Breaking:** in `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry
   `ctrl: true`: a `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and
   that key.

@@ -42,6 +42,8 @@ extern "termbox2"
   def tui_strerror(code: C.Int32) -> C.String
   def tui_paste_length(screen: Screen) -> C.Int64
   def tui_paste_copy(screen: Screen, dest: C.Pointer, room: C.Int64) -> C.Int64
+  def tui_suspend(screen: Screen) -> C.Int32
+  def tui_resume(screen: Screen) -> C.Int32
 end
 
 ## The input and output modes of the screen, as termbox2 values, for `restore_modes`.
@@ -121,8 +123,18 @@ def backend(screen: Screen) -> Bd.Backend
     set_modes: ->(modes) { set_modes(screen, modes) },
     set_cursor: ->(x, y) { set_cursor(screen, x, y) },
     hide_cursor: -> { hide_cursor(screen) },
+    suspend: -> { suspend(screen) },
+    resume: -> { resume(screen) },
   )
 end
+
+## Gives the terminal back as it was before `open` (main screen, its own modes), so that another program can use it;
+## the screen stays open, and an event wait reads nothing until `resume`. Calling it again changes nothing.
+def suspend(screen: Screen) -> Result[Void] = check("suspend", tui_suspend(screen))
+
+## Takes the terminal again after `suspend`, with the modes it had, and reads its size again. Nothing drawn before
+## shows: draw the whole screen again. Calling it again changes nothing.
+def resume(screen: Screen) -> Result[Void] = check("resume", tui_resume(screen))
 
 ## Shows the back buffer on the terminal: nothing drawn appears before this. A write the terminal cuts short goes on
 ## from where it stopped (native/tui.c `tui_write_all`).

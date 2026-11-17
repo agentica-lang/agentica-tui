@@ -12,6 +12,11 @@ import View from "view"
 enum Cmd[Msg]
   ## Calls the function in a task of its own and gives the message it returns to `update`.
   Run(Fn[Msg])
+  ## Gives the terminal back, calls the function (which may run a program on the terminal: an editor), takes the
+  ## terminal again with the same modes and gives the message to `update`, after a `Resize` when the size changed. The
+  ## loop waits for it: no key and no tick comes meanwhile. A crash in the function ends the loop with an error once
+  ## the terminal is taken again.
+  Suspend(Fn[Msg])
   ## Ends the loop.
   Quit
 end
@@ -99,6 +104,15 @@ def loop[M, Msg](backend: Bd.Backend, app: App[M, Msg], inbox: Channel[Input[Msg
     return ok(step.model) if step.cmds.any?(&quit?)
 
     start(step.cmds, inbox)
+    for cmd in step.cmds
+      case cmd
+        Cmd.Suspend(work) ->
+          try suspended(backend, work, inbox)
+          shown = none
+        _ -> next
+      end
+    end
+
     drawn = try Bd.render(backend, app.view.call(step.model), shown, cursor_of(app, step.model))
     shown = some(drawn)
     subs = app.subscriptions.call(step.model)
@@ -130,9 +144,24 @@ def start[Msg](cmds: List[Cmd[Msg]], inbox: Channel[Input[Msg]]) -> Void
   for cmd in cmds
     case cmd
       Cmd.Run(work) -> Task.spawn do run_work(work, inbox) end
-      Cmd.Quit -> next
+      Cmd.Suspend(_), Cmd.Quit -> next
     end
   end
+end
+
+# The terminal is taken again whatever the work does; its message, and a `Resize` when the size changed, wait in the
+# inbox for the next round of the loop.
+def suspended[Msg](backend: Bd.Backend, work: Fn[Msg], inbox: Channel[Input[Msg]]) -> Result[Void]
+  width = backend.width.call()
+  height = backend.height.call()
+  try backend.suspend.call()
+  outcome = Task.await(Task.spawn do ok(work.call()) end)
+  try backend.resume.call()
+  msg = try outcome
+  try inbox.send(Input.App(msg), SEND_MS)
+  return ok() if backend.width.call() == width and backend.height.call() == height
+
+  inbox.send(Input.Event(Ev.Event.Resize(backend.width.call(), backend.height.call())), SEND_MS)
 end
 
 # The work runs in a task of its own so that a crash comes back as an error, not a crash of the loop.
@@ -247,7 +276,7 @@ end
 def quit?[Msg](cmd: Cmd[Msg]) -> Bool
   case cmd
     Cmd.Quit -> true
-    Cmd.Run(_) -> false
+    Cmd.Run(_), Cmd.Suspend(_) -> false
   end
 end
 

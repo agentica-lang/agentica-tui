@@ -19,6 +19,7 @@ The messages are your own type, often an enum. The loop takes every message that
 ## Commands
 
 - `Cmd.Run(work)`: calls `work` in a task of its own; the message it returns goes to `update`. A runtime error in `work` ends the loop with that error.
+- `Cmd.Suspend(work)`: gives the terminal back as it was before the loop, calls `work`, which may run a program on the terminal (an editor through `Process.spawn_group`), then takes the terminal again with the same modes and draws the whole screen. The message of `work` goes to `update`, after a `Resize` event when the size changed meanwhile. The loop waits for `work`: no key or tick comes meanwhile, and keys typed then go to the other program. A runtime error in `work` ends the loop with that error, once the terminal is taken again. The other program gets no resize signal while it runs, and Ctrl+Z does not stop it.
 - `Cmd.Quit`: ends the loop.
 
 ## Subscriptions
