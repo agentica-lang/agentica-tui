@@ -440,7 +440,7 @@ class PtyTest(unittest.TestCase):
     def test_a_suspend_gives_the_terminal_to_a_program_and_takes_it_back(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
             line_file = os.path.join(folder, "line")
-            term = self.start("suspend.agc", {"TUI_CHILD_FILE": line_file})
+            term = self.start("suspend.agc", {"TUI_CHILD_FILE": line_file, "TUI_CHILD_INT": "1"})
             term.wait_for_row(0, "ready")
             entered = len(term.output)
             term.send(b"e")
