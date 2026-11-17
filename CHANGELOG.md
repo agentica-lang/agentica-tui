@@ -50,8 +50,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- **Breaking:** in `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry `ctrl: true`: a
-  `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and that key.
+- **Breaking:** in `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry
+  `ctrl: true`: a `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and
+  that key.
 - **Breaking:** `TUI.Raw.program` takes a `TUI.Backend` (`TUI.Raw.backend(screen)` for an open screen) instead of
   the screen; the program loop reaches the terminal only through that record, so `TUI.Testing.fake` runs a program in
   a test with scripted events and the calls it made.
