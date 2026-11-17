@@ -9,7 +9,6 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - In `InputMode.Esc`, Escape and a printable character or Backspace read together are that key with Alt (Alt+B,
   Alt+Backspace), as Escape and Enter already were; Escape alone stays a key.
 - A terminal key keeps its Ctrl (Ctrl+Left is `Key(Left, Mods(ctrl: true))`).
-
 - Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
   are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
 - `TUI.line(spans)`, one line of styled `TUI.span`s that never wraps; `TUI.list(items, selected)`, a list that marks
@@ -51,6 +50,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- In `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry `ctrl: true`: a
+  `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and that key.
 - **Breaking:** `TUI.Raw.program` takes a `TUI.Backend` (`TUI.Raw.backend(screen)` for an open screen) instead of
   the screen; the program loop reaches the terminal only through that record, so `TUI.Testing.fake` runs a program in
   a test with scripted events and the calls it made.

@@ -265,6 +265,7 @@ class PtyTest(unittest.TestCase):
             (b"\x1b\r", "Event.Key(Key.Enter, Mods(alt: true"),
             (b"\x1bb", 'Event.Char("b", Mods(alt: true'),
             (b"\x1b\x7f", "Event.Key(Key.Backspace, Mods(alt: true"),
+            (b"\x1b\x08", "Event.Key(Key.Backspace, Mods(alt: true"),
             (b"\x1b[1;5D", "Event.Key(Key.Left, Mods(alt: false, ctrl: true"),
             (b"\x1bOS", "Event.Key(Key.F(4)"),
             (b"\x1b[<0;5;3M", "Event.Mouse(Mouse.Left, 4, 2"),  # SGR mouse, 1-based
@@ -294,6 +295,7 @@ class PtyTest(unittest.TestCase):
                 f"Event.Key(Key.Enter, {plain})",
                 f"Event.Key(Key.Enter, {alt})",
                 f'Event.Char("b", {alt})',
+                f"Event.Key(Key.Backspace, {alt})",
                 f"Event.Key(Key.Backspace, {alt})",
                 f"Event.Key(Key.Left, {ctrl})",
                 f"Event.Key(Key.F(4), {plain})",
