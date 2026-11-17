@@ -15,6 +15,7 @@ description: "TUI.Raw, the terminal by hand: cells, present, waiting for events,
 - `set_cursor(screen, x, y)`, `hide_cursor(screen)`.
 - `poll_event(screen)`, `peek_event(screen, timeout_ms)`: see [Events](events.md).
 - `set_input_mode(screen, mode, mouse)`, `set_output_mode(screen, mode)`.
+- `suspend(screen)`, `resume(screen)`: give the terminal back to another program (main screen, its own modes) and take it again with the modes it had; draw the whole screen after `resume`. Calling either twice changes nothing.
 - `render(screen, node, last)`, `diff(old, new)`, `Grid`: see [View tree](view-tree.md).
 - `program(backend(screen), app)`: the loop of `TUI.run` on a screen already open; it sets the modes of the app and puts the screen's own modes back when it ends. `backend(screen)` is the screen as a `TUI.Backend`, the record of functions the loop reaches the terminal through.
 

@@ -187,4 +187,12 @@ module Raw
 
   ## Sets how colors are sent.
   def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void] = Tb.set_output_mode(screen, mode)
+
+  ## Gives the terminal back as it was before `open` (main screen, its own modes), so that another program can use it;
+  ## the screen stays open, and an event wait reads nothing until `resume`. Calling it again changes nothing.
+  def suspend(screen: Screen) -> Result[Void] = Tb.suspend(screen)
+
+  ## Takes the terminal again after `suspend`, with the modes it had, and reads its size again. Nothing drawn before
+  ## shows: draw the whole screen again. Calling it again changes nothing.
+  def resume(screen: Screen) -> Result[Void] = Tb.resume(screen)
 end

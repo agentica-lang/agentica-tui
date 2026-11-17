@@ -35,6 +35,9 @@ struct Backend
   set_modes: Fn[Modes, Result[Fn[Result[Void]]]]
   set_cursor: Fn[Int, Int, Result[Void]]
   hide_cursor: Fn[Result[Void]]
+  ## Gives the terminal back to another program, and takes it again (`TUI.Raw.suspend` and `resume`).
+  suspend: Fn[Result[Void]]
+  resume: Fn[Result[Void]]
 end
 
 ## Draws `node` over the whole screen and shows it. Only the cells that differ from `last` (what the screen shows) are

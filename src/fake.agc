@@ -16,6 +16,8 @@ enum Call
   Cursor(Int, Int)
   CursorHidden
   Restored
+  Suspended
+  Resumed
 end
 
 struct Size
@@ -61,6 +63,8 @@ def backend(fake: Fake) -> Bd.Backend
     set_modes: ->(modes) { set_modes(fake, modes) },
     set_cursor: ->(x, y) { kept(fake, Call.Cursor(x, y)) },
     hide_cursor: -> { kept(fake, Call.CursorHidden) },
+    suspend: -> { kept(fake, Call.Suspended) },
+    resume: -> { kept(fake, Call.Resumed) },
   )
 end
 

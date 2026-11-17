@@ -56,6 +56,15 @@ static pthread_mutex_t tui_lock = PTHREAD_MUTEX_INITIALIZER;
 /* Under tui_lock: tui_init opened the terminal and tui_shutdown did not close
  * it yet. */
 static int tui_opened;
+/* Under tui_lock: tui_suspend gave the terminal back and tui_resume did not
+ * take it again yet; the modes to put back then. */
+static int tui_suspended;
+static int tui_saved_input;
+static int tui_saved_output;
+/* The terminal modes of before tui_init: a resume's tb_init would take the
+ * ones the other program left as the modes to put back at the end. */
+static struct termios tui_first_tios;
+static int tui_has_first_tios;
 
 /* The address that stands for the open terminal: the Agentica resource Screen
  * needs a non-NULL pointer. */
@@ -392,6 +401,19 @@ int tui_init(void **screen) {
     return rv;
 }
 
+/* Under tui_lock, while suspended: puts back the terminal modes of before
+ * tui_init. */
+static void restore_first_tios(void) {
+    if (!tui_has_first_tios) {
+        return;
+    }
+    int fd = open("/dev/tty", O_RDWR | O_NOCTTY);
+    if (fd >= 0) {
+        tcsetattr(fd, TCSAFLUSH, &tui_first_tios);
+        close(fd);
+    }
+}
+
 /* The free function of the resource Screen: it restores the terminal and the
  * locale. The VM calls it at Native.close, or at the end of the run when the
  * program did not close the screen (a crash too), after any call that holds
@@ -401,8 +423,14 @@ void tui_shutdown(void *screen) {
     pthread_mutex_lock(&tui_lock);
     if (tui_opened) {
         tui_opened = 0;
-        send_now("\x1b[?2004l");
-        tb_shutdown();
+        if (!tui_suspended) {
+            send_now("\x1b[?2004l");
+            tb_shutdown();
+        } else {
+            restore_first_tios();
+        }
+        tui_suspended = 0;
+        tui_paste_draining = 0;
         free(tui_paste_text);
         tui_paste_text = NULL;
         tui_paste_len = 0;
@@ -410,6 +438,56 @@ void tui_shutdown(void *screen) {
         setlocale(LC_CTYPE, tui_saved_ctype);
     }
     pthread_mutex_unlock(&tui_lock);
+}
+
+/* Gives the terminal back as it was before tui_init (main screen, its own
+ * modes, no bracketed paste) so that another program can use it; the screen
+ * stays open. No call reaches termbox2 until tui_resume, and an event wait
+ * reads nothing. Calling it again changes nothing. */
+int tui_suspend(void *screen) {
+    (void)screen;
+    pthread_mutex_lock(&tui_lock);
+    int rv = TB_ERR_NOT_INIT;
+    if (tui_opened && tui_suspended) {
+        rv = TB_OK;
+    } else if (tui_opened) {
+        tui_saved_input = tb_set_input_mode(TB_INPUT_CURRENT);
+        tui_saved_output = tb_set_output_mode(TB_OUTPUT_CURRENT);
+        tui_first_tios = global.orig_tios;
+        tui_has_first_tios = global.has_orig_tios;
+        send_now("\x1b[?2004l");
+        rv = tb_shutdown();
+        tui_suspended = 1;
+        tui_paste_scanned = 0;
+        tui_paste_draining = 0;
+    }
+    pthread_mutex_unlock(&tui_lock);
+    return rv;
+}
+
+/* Takes the terminal again after tui_suspend, with the input and output
+ * modes and the bracketed paste it had; the size is read again. Calling it
+ * again changes nothing. On an error the screen stays suspended. */
+int tui_resume(void *screen) {
+    (void)screen;
+    pthread_mutex_lock(&tui_lock);
+    int rv = TB_ERR_NOT_INIT;
+    if (tui_opened && !tui_suspended) {
+        rv = TB_OK;
+    } else if (tui_opened) {
+        rv = tb_init();
+        if (rv == TB_OK) {
+            global.orig_tios = tui_first_tios;
+            global.has_orig_tios = tui_has_first_tios;
+            tb_set_func(TB_FUNC_EXTRACT_PRE, extract_pre);
+            tb_set_input_mode(tui_saved_input);
+            tb_set_output_mode(tui_saved_output);
+            send_now("\x1b[?2004h");
+            tui_suspended = 0;
+        }
+    }
+    pthread_mutex_unlock(&tui_lock);
+    return rv;
 }
 
 /* The LC_CTYPE of the process now, for the tests. */
@@ -422,11 +500,17 @@ const char *tui_ctype(void) {
     return copy;
 }
 
-/* Returns `call`, made under the lock, or TB_ERR_NOT_INIT once closed. */
+/* Under tui_lock: termbox2 holds the terminal (open and not suspended). */
+static int tui_open_now(void) {
+    return tui_opened && !tui_suspended;
+}
+
+/* Returns `call`, made under the lock, or TB_ERR_NOT_INIT once closed or
+ * while suspended. */
 #define TUI_LOCKED(call)                                     \
     do {                                                     \
         pthread_mutex_lock(&tui_lock);                       \
-        int rv_ = tui_opened ? (call) : TB_ERR_NOT_INIT;     \
+        int rv_ = tui_open_now() ? (call) : TB_ERR_NOT_INIT; \
         pthread_mutex_unlock(&tui_lock);                     \
         return rv_;                                          \
     } while (0)
@@ -524,8 +608,14 @@ static long long now_ms(void) {
  * errno termbox2 kept for a failed select or read, read under the lock. */
 static int peek_now(struct tb_event *event, int *err) {
     pthread_mutex_lock(&tui_lock);
-    int rv = tui_opened ? tb_peek_event(event, 0) : TB_ERR_NOT_INIT;
-    *err = tb_last_errno();
+    int rv = TB_ERR_NO_EVENT;
+    *err = 0;
+    if (!tui_opened) {
+        rv = TB_ERR_NOT_INIT;
+    } else if (!tui_suspended) {
+        rv = tb_peek_event(event, 0);
+        *err = tb_last_errno();
+    }
     pthread_mutex_unlock(&tui_lock);
     return rv;
 }
@@ -558,14 +648,23 @@ int64_t tui_paste_copy(void *screen, char *dest, int64_t room) {
  * garbage collector sends them to every thread). */
 static int wait_readable(int timeout_ms) {
     pthread_mutex_lock(&tui_lock);
-    int tty = tui_opened ? global.rfd : -1;
-    int resize = tui_opened ? global.resize_pipefd[0] : -1;
+    int suspended = tui_opened && tui_suspended;
+    int tty = tui_open_now() ? global.rfd : -1;
+    int resize = tui_open_now() ? global.resize_pipefd[0] : -1;
     pthread_mutex_unlock(&tui_lock);
+    if (suspended) {
+        /* Nothing to read while another program has the terminal: wait out
+         * the time instead of asking again at once. */
+        struct timespec pause = {timeout_ms / 1000, (long)(timeout_ms % 1000) * 1000000L};
+        nanosleep(&pause, NULL);
+        return 0;
+    }
     if (tty < 0 || resize < 0) {
         return 0;
     }
-    /* The descriptors stay open meanwhile: the VM does not run tui_shutdown
-     * during this call, which holds the screen. */
+    /* The VM does not run tui_shutdown during this call, which holds the
+     * screen, but tui_suspend may close the descriptors meanwhile: select
+     * then fails or waits out the slice, and the next peek reads nothing. */
     fd_set fds;
     FD_ZERO(&fds);
     FD_SET(tty, &fds);
