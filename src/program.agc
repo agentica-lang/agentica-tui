@@ -166,6 +166,7 @@ def run_suspended[Msg](backend: Bd.Backend, work: Fn[Msg], inbox: Channel[Input[
       end
   end
 
+  # The error case returned above.
   msg = outcome.unwrap!
   if backend.width.call() != width or backend.height.call() != height
     try inbox.send(Input.Event(Ev.Event.Resize(backend.width.call(), backend.height.call())), SEND_MS)

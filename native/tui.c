@@ -407,7 +407,7 @@ static void restore_first_tios(void) {
     if (!tui_has_first_tios) {
         return;
     }
-    int fd = open("/dev/tty", O_RDWR | O_NOCTTY);
+    int fd = open("/dev/tty", O_RDWR | O_NOCTTY | O_CLOEXEC);
     if (fd >= 0) {
         tcsetattr(fd, TCSAFLUSH, &tui_first_tios);
         close(fd);

@@ -1,6 +1,7 @@
 ## The program tests/test_pty.py drives for `Cmd.Suspend`, in Truecolor: e gives the terminal to a shell that runs
 ## `stty` with TUI_CHILD_STTY (when set), reads a line and writes it to the file that TUI_CHILD_FILE names; the screen
-## shows the line back, and whether a Ctrl+C came meanwhile. A paste shows its text; q quits.
+## shows the line back, and whether a Ctrl+C came meanwhile (waited for when TUI_CHILD_INT is set: the signal comes in
+## a little after the key). A paste shows its text; q quits.
 
 import TUI from "../../tui"
 
@@ -45,7 +46,12 @@ def child() -> Msg
   case Process.spawn_group("sh", ["-c", script, "sh", path, System.env("TUI_CHILD_STTY").unwrap_or("")])
     ok(running) ->
       _ = Process.wait(running, WAIT_MS)
-      caught = interrupts.recv(0).ok?
+      wait_ms = 0
+      if System.env("TUI_CHILD_INT").ok?
+        wait_ms = WAIT_MS
+      end
+
+      caught = interrupts.recv(wait_ms).ok?
       Msg.Back("#{File.read_text(path).unwrap_or("nothing")}, ctrl+c #{caught}")
     error(e) -> Msg.Back("error #{e.message}")
   end
