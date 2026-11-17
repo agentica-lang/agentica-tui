@@ -8,7 +8,7 @@ The package calls termbox2 through the Agentica FFI. `native/termbox2/termbox2.h
 
 ## The `.so`
 
-`native/linux/libtermbox2.so` is committed, so `agentica add` and `agentica install` need no C compiler. It is built on ubuntu-22.04 (glibc 2.35) and runs on glibc 2.33 or later. At this version its sha256 is `a14989002256f470eb504834f5b608b47183641b6104559bb5569ec877c1737b`:
+`native/linux/libtermbox2.so` is committed, so `agentica add` and `agentica install` need no C compiler. It is built on ubuntu-22.04 (glibc 2.35) and runs on glibc 2.33 or later. At this version its sha256 is `d66dc667438b82a8299a4402aa938e603a394d77737f6117cfeeb392c344a13e`:
 
 ```sh
 sha256sum native/linux/libtermbox2.so
