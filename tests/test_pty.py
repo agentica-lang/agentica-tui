@@ -263,6 +263,9 @@ class PtyTest(unittest.TestCase):
             (b"\x03", 'Event.Key(Key.Ctrl("c")'),
             (b"\r", "Event.Key(Key.Enter"),
             (b"\x1b\r", "Event.Key(Key.Enter, Mods(alt: true"),
+            (b"\x1bb", 'Event.Char("b", Mods(alt: true'),
+            (b"\x1b\x7f", "Event.Key(Key.Backspace, Mods(alt: true"),
+            (b"\x1b[1;5D", "Event.Key(Key.Left, Mods(alt: false, ctrl: true"),
             (b"\x1bOS", "Event.Key(Key.F(4)"),
             (b"\x1b[<0;5;3M", "Event.Mouse(Mouse.Left, 4, 2"),  # SGR mouse, 1-based
         ]
@@ -278,6 +281,7 @@ class PtyTest(unittest.TestCase):
         lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
         mods = "Mods(alt: false, ctrl: {}, shift: false, motion: false)"
         plain, ctrl = mods.format("false"), mods.format("true")
+        alt = plain.replace("alt: false", "alt: true")
         self.assertEqual(
             lines,
             [
@@ -288,7 +292,10 @@ class PtyTest(unittest.TestCase):
                 f'Event.Char("ñ", {plain})',
                 f'Event.Key(Key.Ctrl("c"), {ctrl})',
                 f"Event.Key(Key.Enter, {plain})",
-                f"Event.Key(Key.Enter, {mods.format('false').replace('alt: false', 'alt: true')})",
+                f"Event.Key(Key.Enter, {alt})",
+                f'Event.Char("b", {alt})',
+                f"Event.Key(Key.Backspace, {alt})",
+                f"Event.Key(Key.Left, {ctrl})",
                 f"Event.Key(Key.F(4), {plain})",
                 f"Event.Mouse(Mouse.Left, 4, 2, {plain})",
                 "Event.Resize(100, 30)",
@@ -411,6 +418,21 @@ class PtyTest(unittest.TestCase):
             + [f"Event.Mouse(Mouse.WheelUp, 9, 9, {plain})"] * 6
             + [f"Event.Mouse(Mouse.Left, 79, 23, {plain})", f'Event.Char("a", {plain})'],
         )
+
+    def test_a_lone_escape_stays_a_key_before_a_later_letter(self) -> None:
+        term = self.start("events.agc")
+        term.wait_for_row(0, "ready 80x24")
+        term.send(b"\x1b")
+        term.wait_for_row(0, "Event.Key(Key.Escape")
+        term.send(b"b")
+        term.wait_for_row(0, 'Event.Char("b"')
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")[:-1]
+        plain = "Mods(alt: false, ctrl: false, shift: false, motion: false)"
+        self.assertEqual(lines, ["peek none", f"Event.Key(Key.Escape, {plain})", f'Event.Char("b", {plain})'])
 
     def test_alt_bracket_and_a_letter_keep_the_letter(self) -> None:
         term = self.start("events.agc")

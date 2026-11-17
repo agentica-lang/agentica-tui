@@ -45,6 +45,10 @@ def main() -> Void
       try Test.eq(Codes.decode(ctrl_c), some(Ev.Event.Key(Ev.Key.Ctrl("c"), Ev.Mods(ctrl: true))))
       Test.eq(Codes.decode(enter), some(Ev.Event.Key(Ev.Key.Enter, Ev.Mods())))
     end,
+    Test.test("a terminal key keeps its Ctrl") do
+      ctrl_up = Codes.Raw(kind: 1, mod: MOD_CTRL, key: KEY_UP, ch: 0)
+      Test.eq(Codes.decode(ctrl_up), some(Ev.Event.Key(Ev.Key.Up, Ev.Mods(ctrl: true))))
+    end,
     Test.test("mouse and resize") do
       click = Codes.Raw(kind: 3, mod: 8, key: KEY_MOUSE_LEFT, ch: 0, x: 4, y: 2)
       wheel = Codes.Raw(kind: 3, mod: 0, key: KEY_WHEEL_DOWN, ch: 0)

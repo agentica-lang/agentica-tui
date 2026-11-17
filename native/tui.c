@@ -332,17 +332,28 @@ static int extract_mouse(struct tb_event *event, size_t *consumed) {
     return TB_OK;
 }
 
-/* Alt+Enter: a terminal sends Escape and a carriage return in one write,
- * which termbox2 reads as Escape, then Enter, when a lone Escape is a key. */
-static int extract_alt_enter(struct tb_event *event, size_t *consumed) {
+/* Alt and a key: a terminal sends Escape and the key in one write, which
+ * termbox2 reads as Escape, then the key, when a lone Escape is a key. Read
+ * together, Escape and a carriage return, a Backspace (DEL or BS) or a
+ * printable ASCII character are that key with Alt; Escape alone stays a key.
+ * '[' and 'O' start escape sequences and are left to termbox2. */
+static int extract_alt_key(struct tb_event *event, size_t *consumed) {
     struct bytebuf_t *in = &global.in;
-    if (in->len < 2 || in->buf[0] != '\x1b' || in->buf[1] != '\r') {
+    if (in->len < 2 || in->buf[0] != '\x1b') {
         return TB_ERR;
     }
+    unsigned char next = (unsigned char)in->buf[1];
     event->type = TB_EVENT_KEY;
     event->mod = TB_MOD_ALT;
-    event->key = TB_KEY_ENTER;
     event->ch = 0;
+    if (next == '\r' || next == TB_KEY_BACKSPACE || next == TB_KEY_BACKSPACE2) {
+        event->key = next;
+    } else if (next >= 0x20 && next < 0x7f && next != '[' && next != 'O') {
+        event->key = 0;
+        event->ch = next;
+    } else {
+        return TB_ERR;
+    }
     *consumed = 2;
     return TB_OK;
 }
@@ -353,7 +364,7 @@ static int extract_pre(struct tb_event *event, size_t *consumed) {
     if (rv != TB_ERR) {
         return rv;
     }
-    rv = extract_alt_enter(event, consumed);
+    rv = extract_alt_key(event, consumed);
     if (rv != TB_ERR) {
         return rv;
     }
