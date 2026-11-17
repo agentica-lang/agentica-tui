@@ -1,0 +1,4 @@
+{{- /* An image is a file of site/assets/, a screenshot taken at twice its size: it shows at half its pixels. */ -}}
+{{- $img := resources.Get (strings.TrimPrefix "/" .Destination) -}}
+{{- if not $img }}{{ errorf "%s: no image %q in site/assets/" .Page.Path .Destination }}{{ end -}}
+<img src="{{ $img.RelPermalink }}" alt="{{ .Text }}" width="{{ div $img.Width 2 }}" height="{{ div $img.Height 2 }}" loading="lazy" style="max-width:100%;height:auto">

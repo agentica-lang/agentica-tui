@@ -1,0 +1,21 @@
+# The look, the layouts, the outputs and the highlighter come from the docs theme (themes/docs-theme, a submodule);
+# `_merge = "deep"` takes its [outputs] (llms.txt and llms-full.txt too), [markup], [minify] and search output. This
+# file sets only what is agentica-tui's own.
+_merge = "deep"
+baseURL = "https://www.agentica-lang.com/agentica-tui/"
+locale = "en"
+title = "agentica-tui"
+theme = "docs-theme"
+disableKinds = ["taxonomy", "term", "rss"]
+# The sitemap dates each page by its last commit (pages.yml checks out the whole history).
+enableGitInfo = true
+
+[module.hugoVersion]
+  extended = true
+  min = "0.167.0"
+
+[params]
+  description = "agentica-tui is a terminal UI package for Agentica: a typed view tree, an Elm-like loop, and key, mouse, paste and resize events, on termbox2."
+  tagline = "a terminal UI package for Agentica"
+  repo = "https://github.com/agentica-lang/agentica-tui"
+  repoPublic = true
