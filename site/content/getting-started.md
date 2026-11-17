@@ -1,23 +1,24 @@
-# Getting started
+---
+title: Getting started
+weight: 1
+description: Install the package, write a first program and run it.
+---
 
 ## Install
 
-agentica-tui needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet, so
-add the package at a commit of `main` (the whole commit id):
+agentica-tui needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
 ```
 
-That writes the line of `agentica.toml` and the entry of `agentica.lock`, and puts the package in `deps/`. No C
-compiler is needed: the package ships its library ([Native library](native.md)).
+That writes the line of `agentica.toml` and the entry of `agentica.lock`, and puts the package in `deps/`. No C compiler is needed: the package ships its library ([Native library](native.md)).
 
 ## A first program
 
-`TUI.run(app)` opens the terminal, runs the [Elm loop](elm-loop.md) of the app and restores the terminal when it
-ends, whatever happens.
+`TUI.run(app)` opens the terminal, runs the [Elm loop](elm-loop.md) of the app and restores the terminal when it ends, whatever happens.
 
-```ruby
+```agentica
 import TUI from "pkg/tui/tui"
 
 enum Msg
@@ -38,8 +39,7 @@ def main() -> Void
 end
 ```
 
-A runtime error in the app comes back as `error("task crashed: ...")` after the terminal is restored, and
-`System.exit` still restores it.
+A runtime error in the app comes back as `error("task crashed: ...")` after the terminal is restored, and `System.exit` still restores it.
 
 ## Run it
 
@@ -47,8 +47,7 @@ A runtime error in the app comes back as `error("task crashed: ...")` after the 
 agentica hello.agc
 ```
 
-The program needs a real terminal: `TUI.run` fails when there is none. From a clone of this repository, the
-examples run the same way:
+The program needs a real terminal: `TUI.run` fails when there is none. From a clone of this repository, the examples run the same way:
 
 ```sh
 agentica examples/view.agc   # a counter in a box; + and - count, q quits
