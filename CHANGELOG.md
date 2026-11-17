@@ -6,8 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- In `InputMode.Esc`, Escape and a printable character or Backspace read together are that key with Alt (Alt+B,
-  Alt+Backspace), as Escape and Enter already were; Escape alone stays a key.
+- In both input modes, Escape and a printable ASCII character (but `[` and `O`, which start escape sequences) or
+  Backspace read together are that key with Alt (Alt+B, Alt+Backspace), as Escape and Enter already were; Escape
+  alone stays a key.
 - A terminal key keeps its Ctrl (Ctrl+Left is `Key(Left, Mods(ctrl: true))`).
 - Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
   are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
@@ -15,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its selected item and scrolls to it in the room its siblings leave (`TUI.list_first` maps a row to its item);
   `TUI.table(cells)`, the aligned lines of a table. A `case` over `Node` needs the variants `Line` and `List`.
 - `TUI.Raw.program` puts the screen's input and output modes back when it ends.
-- Alt+Enter is `Key.Enter` with `alt` in `InputMode.Esc` too (was Escape, then Enter).
+- Alt+Enter is `Key.Enter` with `alt` in both input modes (was Escape, then Enter in `InputMode.Esc`).
 - `TUI.App` has `cursor`, where the terminal cursor shows for a model (`TUI.Cursor`).
 - `TUI.Testing`: `resize`, `screen`, `wait_for`, `style_at` and `cursor` read and change the fake terminal, `rows`
   shows a wide character once, and a full call buffer is an error that says how to read it.
@@ -51,8 +52,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
-- In `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry `ctrl: true`: a
-  `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and that key.
+- **Breaking:** in `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry
+  `ctrl: true`: a `case` that reads a letter as typed text checks `mods.alt`. Escape and a key in one read are Alt and
+  that key.
 - **Breaking:** `TUI.Raw.program` takes a `TUI.Backend` (`TUI.Raw.backend(screen)` for an open screen) instead of
   the screen; the program loop reaches the terminal only through that record, so `TUI.Testing.fake` runs a program in
   a test with scripted events and the calls it made.
