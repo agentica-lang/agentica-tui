@@ -14,7 +14,8 @@ Needs Agentica 0.31.0 or later on Linux x86_64 (glibc 2.33 or later). There is n
 tui = { git = "https://github.com/agentica-lang/agentica-tui", ref = "COMMIT" }
 ```
 
-The package ships `native/linux/libtermbox2.so`, built by CI; see [Native library](docs/native.md).
+The package ships `native/linux/libtermbox2.so`, built by CI; see
+[Native library](https://www.agentica-lang.com/agentica-tui/native/).
 
 ## Example
 
@@ -51,15 +52,19 @@ end
 
 ## Docs
 
-- [Getting started](docs/getting-started.md): install, a first program, run it.
-- [View tree](docs/view-tree.md): `text`, `row`, `col`, `box`, `spacer`, `line`, `list`, `table`, layout and widths.
-- [Elm loop](docs/elm-loop.md): `TUI.run`, `App`, `Step`, commands and subscriptions.
-- [Events](docs/events.md): keys, mouse, paste and resize.
-- [Styles](docs/styles.md): colors, attributes and `merge`.
-- [Low level](docs/low-level.md): `TUI.Raw`, cells, `present`, waiting for events, tasks.
-- [Native library](docs/native.md): termbox2, the `.so` and how CI builds it.
-- [Tests](docs/tests.md): the test suites and how to test a view.
-- [llms.txt](docs/llms.txt): these pages as links, for language models.
+The docs are at https://www.agentica-lang.com/agentica-tui/:
+
+- [Getting started](https://www.agentica-lang.com/agentica-tui/getting-started/): install, a first program, run it.
+- [View tree](https://www.agentica-lang.com/agentica-tui/view-tree/): `text`, `row`, `col`, `box`, `spacer`, `line`,
+  `list`, `table`, layout and widths.
+- [Elm loop](https://www.agentica-lang.com/agentica-tui/elm-loop/): `TUI.run`, `App`, `Step`, commands and
+  subscriptions.
+- [Events](https://www.agentica-lang.com/agentica-tui/events/): keys, mouse, paste and resize.
+- [Styles](https://www.agentica-lang.com/agentica-tui/styles/): colors, attributes and `merge`.
+- [Low level](https://www.agentica-lang.com/agentica-tui/low-level/): `TUI.Raw`, cells, `present`, waiting for events,
+  tasks.
+- [Native library](https://www.agentica-lang.com/agentica-tui/native/): termbox2, the `.so` and how CI builds it.
+- [Tests](https://www.agentica-lang.com/agentica-tui/tests/): the test suites and how to test a view.
 
 ## License
 

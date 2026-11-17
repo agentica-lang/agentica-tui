@@ -6,8 +6,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 
-- In `InputMode.Esc`, Escape and a printable character or Backspace read together are that key with Alt (Alt+B,
-  Alt+Backspace), as Escape and Enter already were; Escape alone stays a key.
+- In both input modes, Escape and a printable ASCII character (but `[` and `O`, which start escape sequences) or
+  Backspace read together are that key with Alt (Alt+B, Alt+Backspace), as Escape and Enter already were; Escape
+  alone stays a key.
 - A terminal key keeps its Ctrl (Ctrl+Left is `Key(Left, Mods(ctrl: true))`).
 - Combining marks and zero-width joiners are drawn on the cell before them in `text` and `line` (variation selectors
   are left out), and `TUI.Raw.set_cell` takes a character with its zero-width ones.
@@ -15,7 +16,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   its selected item and scrolls to it in the room its siblings leave (`TUI.list_first` maps a row to its item);
   `TUI.table(cells)`, the aligned lines of a table. A `case` over `Node` needs the variants `Line` and `List`.
 - `TUI.Raw.program` puts the screen's input and output modes back when it ends.
-- Alt+Enter is `Key.Enter` with `alt` in `InputMode.Esc` too (was Escape, then Enter).
+- Alt+Enter is `Key.Enter` with `alt` in both input modes (was Escape, then Enter in `InputMode.Esc`).
 - `TUI.App` has `cursor`, where the terminal cursor shows for a model (`TUI.Cursor`).
 - `TUI.Testing`: `resize`, `screen`, `wait_for`, `style_at` and `cursor` read and change the fake terminal, `rows`
   shows a wide character once, and a full call buffer is an error that says how to read it.
@@ -40,7 +41,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - An SGR (1006) or urxvt (1015) mouse report keeps the input after it (a key, another report, a paste): the library
   reads these reports itself, strictly, and drops an unknown CSI sequence with parameters instead of reading it as
   a click; Alt+[ and a letter stay Escape (or Alt) and the characters.
-- The README is short; the guide is in `docs/`, one topic per page.
+- The README is short; the guide is the docs site, https://www.agentica-lang.com/agentica-tui/, one topic per page,
+  with screenshots of the examples.
 - Bracketed paste: the screen turns it on and off, and a paste is one `Event.Paste(text)`, so its keys never come
   as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
