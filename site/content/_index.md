@@ -5,7 +5,7 @@ description: A terminal UI package for Agentica. A typed view tree, an Elm-like 
 
 agentica-tui is a terminal UI library for [Agentica](https://www.agentica-lang.com/agentica/): build a view tree, draw it full screen, and read key, mouse, paste and resize events. It calls [termbox2](https://github.com/termbox/termbox2) (v2.5.0, vendored) through the Agentica FFI.
 
-It needs Agentica 0.32.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet: add the package at a commit of `main` (the whole commit id).
+It needs Agentica 0.39.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet: add the package at a commit of `main` (the whole commit id).
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
