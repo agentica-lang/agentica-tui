@@ -75,7 +75,8 @@ class Terminal:
         self.answers_status = answers_status
         self.master, self.slave = os.openpty()
         set_size(self.slave, 24, 80)
-        self.modes_before = termios.tcgetattr(self.slave)
+        self.slave_name = os.ttyname(self.slave)
+        self.modes_before = self.modes()
         self.output = b""
         self.process = subprocess.Popen(
             [AGENTICA, str(program)],
@@ -86,6 +87,15 @@ class Terminal:
             env=dict(os.environ, TERM="xterm", **(env or {})),
             preexec_fn=self._own_terminal,
         )
+
+    def modes(self) -> list:
+        """The terminal modes, read through a new open of the slave: on macOS the descriptor the harness holds stops
+        answering once the session leader has exited."""
+        fd = os.open(self.slave_name, os.O_RDWR | os.O_NOCTTY)
+        try:
+            return termios.tcgetattr(fd)
+        finally:
+            os.close(fd)
 
     @staticmethod
     def _own_terminal() -> None:
@@ -319,7 +329,7 @@ class PtyTest(unittest.TestCase):
                 "Event.Resize(100, 30)",
             ],
         )
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_a_paste_is_one_event_and_its_keys_never_arrive(self) -> None:
         term = self.start("events.agc")
@@ -479,7 +489,7 @@ class PtyTest(unittest.TestCase):
             self.assertIn(b"last pasted q", term.output[term.output.rindex(LEAVE_SCREEN) :])
             with open(line_file) as written:
                 self.assertEqual(written.read(), "hello there")
-            self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+            self.assertEqual(term.modes(), term.modes_before)
 
     def test_the_terminal_modes_a_suspended_program_leaves_are_not_kept(self) -> None:
         with tempfile.TemporaryDirectory() as folder:
@@ -493,7 +503,7 @@ class PtyTest(unittest.TestCase):
             term.send(b"q")
 
             self.assertEqual(term.finish(), 0)
-            self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+            self.assertEqual(term.modes(), term.modes_before)
 
     def test_alt_bracket_and_a_letter_keep_the_letter(self) -> None:
         term = self.start("events.agc")
@@ -528,14 +538,14 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 1)
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
         self.assertIn(b"task crashed: RUNTIME-INDEX-OUT-OF-RANGE", after)
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_an_exit_inside_open_gives_the_shell_its_modes_back(self) -> None:
         term = self.start("exit.agc")
         term.wait_for(b"drawn")
 
         self.assertEqual(term.finish(), 3)
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_a_terminal_that_does_not_answer_the_status_request_delays_the_close_by_half_a_second(self) -> None:
         term = self.start("events.agc", answers_status=False)
@@ -548,7 +558,7 @@ class PtyTest(unittest.TestCase):
         self.assertGreater(time.monotonic() - started, 0.4)
         self.assertLess(time.monotonic() - started, 3.0)
         self.assertIn(LEAVE_SCREEN, term.output)
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_the_close_restores_the_terminal_when_a_task_cancelled_mid_draw_took_the_lock(self) -> None:
         term = self.start("lost.agc")
@@ -558,7 +568,7 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 0)
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
         self.assertIn(b"closed tui: the screen was busy at the close; the terminal is restored", after)
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_a_second_open_fails_and_changes_nothing(self) -> None:
         term = self.start("twice.agc")
@@ -568,7 +578,7 @@ class PtyTest(unittest.TestCase):
         lines = ESCAPE.sub("", term.output[term.output.rindex(LEAVE_SCREEN) :].decode()).split("\r\n")
         self.assertEqual(lines[0], 'first ok("error(\\"tui: open failed: a screen is open already\\")")')
         self.assertEqual(lines[1:], ['again ok("drawn")', ""])
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_drawing_while_a_wait_runs_and_closing_ends_the_wait(self) -> None:
         term = self.start("background.agc")
@@ -580,7 +590,7 @@ class PtyTest(unittest.TestCase):
         self.assertIn(b"\x1b[3;6H", screen)  # the cursor at column 5, row 2
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
         self.assertIn(b'waiter error("tui: the screen is closed")', after)
-        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+        self.assertEqual(term.modes(), term.modes_before)
 
     def test_a_call_after_the_close_is_an_error(self) -> None:
         term = self.start("closed.agc")
