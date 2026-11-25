@@ -51,6 +51,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The package runs on macOS as well as Linux: CI runs the unit tests and the pseudo-terminal tests on Linux x86_64,
+  macOS arm64 and macOS x86_64, and checks the code and runs the unit tests on Windows x86_64 (the terminal is not
+  tested there).
 - **Breaking:** the package is written in Agentica alone, on `Terminal` (raw mode, size, resize signal) and VT
   sequences: termbox2, `native/` and the prebuilt `libtermbox2.so` are gone, so there is no C code to build or
   trust. What changes for a program:

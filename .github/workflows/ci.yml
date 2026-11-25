@@ -10,28 +10,72 @@ permissions:
 
 env:
   AGENTICA_VERSION: 0.39.0
-  AGENTICA_SHA256: 2ce92a90d2ffe9b9404c57d722a7f6a6e6d7b2376d09cfc3548a773b84f9bc0f
 
 jobs:
   test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    name: test (${{ matrix.system }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - system: linux-x86_64
+            runner: ubuntu-latest
+            archive: agentica-0.39.0-linux-x86_64.tar.gz
+            sha256: 2ce92a90d2ffe9b9404c57d722a7f6a6e6d7b2376d09cfc3548a773b84f9bc0f
+          - system: macos-arm64
+            runner: macos-latest
+            archive: agentica-0.39.0-macos-arm64.tar.gz
+            sha256: bea21878952832a151a8a4a33894c5efa90e5ba55140dc8e57968abc2d0ed691
+          - system: macos-x86_64
+            runner: macos-15-intel
+            archive: agentica-0.39.0-macos-x86_64.tar.gz
+            sha256: caa1134b8f342d4e996c7845f3358d162c75db9a4a35f010f1e12b2e54a7a593
+          - system: windows-x86_64
+            runner: windows-2025
+            archive: agentica-0.39.0-windows-x86_64.zip
+            sha256: e8a25819a1d14ffca53d3d137dc30c29f32b7ccc8adb1d892653125fb9fd964e
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Install the pinned Agentica release
+        if: runner.os != 'Windows'
         run: |
-          archive="agentica-${AGENTICA_VERSION}-linux-x86_64.tar.gz"
-          curl -fsSL -o "$RUNNER_TEMP/$archive" \
-            "https://github.com/agentica-lang/agentica/releases/download/${AGENTICA_VERSION}/$archive"
-          echo "${AGENTICA_SHA256}  $RUNNER_TEMP/$archive" | sha256sum -c -
-          tar -xzf "$RUNNER_TEMP/$archive" -C "$RUNNER_TEMP"
-          echo "$RUNNER_TEMP/agentica-${AGENTICA_VERSION}-linux-x86_64/bin" >> "$GITHUB_PATH"
+          curl -fsSL -o "$RUNNER_TEMP/${{ matrix.archive }}" \
+            "https://github.com/agentica-lang/agentica/releases/download/${AGENTICA_VERSION}/${{ matrix.archive }}"
+          echo "${{ matrix.sha256 }}  $RUNNER_TEMP/${{ matrix.archive }}" | shasum -a 256 -c -
+          tar -xzf "$RUNNER_TEMP/${{ matrix.archive }}" -C "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/agentica-${AGENTICA_VERSION}-${{ matrix.system }}/bin" >> "$GITHUB_PATH"
+
+      - name: Install the pinned Agentica release (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $archive = Join-Path $env:RUNNER_TEMP "${{ matrix.archive }}"
+          Invoke-WebRequest -Uri "https://github.com/agentica-lang/agentica/releases/download/$env:AGENTICA_VERSION/${{ matrix.archive }}" -OutFile $archive
+          if ((Get-FileHash $archive -Algorithm SHA256).Hash -ne "${{ matrix.sha256 }}".ToUpper()) { throw "bad sha256" }
+          Expand-Archive $archive -DestinationPath $env:RUNNER_TEMP
+          Add-Content $env:GITHUB_PATH (Join-Path $env:RUNNER_TEMP "agentica-$env:AGENTICA_VERSION-${{ matrix.system }}\bin")
 
       - run: agentica --version
+        shell: bash
 
       - name: Check the format
+        shell: bash
         run: agentica fmt --check tui.agc src examples tests
 
-      # Checks every .agc file, runs the unit tests and the pseudo-terminal tests.
-      - run: make test
+      # Linux and macOS: checks every .agc file, runs the unit tests and the pseudo-terminal tests.
+      - name: Test
+        if: runner.os != 'Windows'
+        run: make test
+
+      # Windows has no pseudo-terminal in the test suite: it checks and runs the unit tests.
+      - name: Check and unit tests
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          for file in tui.agc src/*.agc examples/*.agc tests/*.agc tests/fixtures/*.agc; do
+            agentica check "$file" || exit 1
+          done
+          agentica test tests

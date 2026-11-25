@@ -3,7 +3,7 @@
 
 import TUI from "../../tui"
 
-SETTLE_MS = 700
+SETTLE_MS = 1500
 
 def main() -> Void
   case TUI.Raw.open(&body)
@@ -16,7 +16,11 @@ def draw(screen: TUI.Raw.Screen) -> Result[Void]
   i = 0
   while true
     i = i + 1
-    try TUI.Raw.write(screen, 0, i % 20, "x#{i}")
+    # A whole screen of new text each frame: the pty fills in a few frames, on a slow machine as well.
+    for row in 0...20
+      try TUI.Raw.write(screen, 0, row, "frame #{i} row #{row} " + List.repeat("#{i}", 50).join(""))
+    end
+
     try TUI.Raw.present(screen)
   end
 

@@ -10,7 +10,7 @@ make test AGENTICA=/path/to/agentica
 
 - `make check`: `agentica check` on every `.agc` file.
 - `make unit`: the unit tests (`tests/*_test.agc`): events, styles, the layout, and the program loop on a fake terminal.
-- `make pty`: `tests/test_pty.py` (Python, standard library only) runs the programs of `tests/fixtures/` and the examples under a new pseudo-terminal, sends keys, mouse reports, pastes and a resize, and checks the screen and that the terminal comes back. The harness answers the status request of a stop, as a terminal does.
+- `make pty`: `tests/test_pty.py` (Python, standard library only) runs the programs of `tests/fixtures/` and the examples under a new pseudo-terminal, sends keys, mouse reports, pastes and a resize, and checks the screen and that the terminal comes back. CI runs it on Linux and macOS; Windows has no pty run. The harness answers the status request of a stop, as a terminal does.
 
 ## Testing a view
 

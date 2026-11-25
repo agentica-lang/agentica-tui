@@ -31,6 +31,8 @@ tests/test_pty.py      end-to-end tests under a pseudo-terminal; drives tests/fi
 - Binary: the release pinned in `.github/workflows/ci.yml` (`AGENTICA_VERSION`, with its sha256). Keep a local copy
   under `.tools/` (gitignored), never `/tmp`.
 - `make test AGENTICA=...`: `check`, `unit` (`agentica test tests`), `pty` (`python3 -m unittest`).
+- CI (`ci.yml`): `make test` on Linux x86_64, macOS arm64 and macOS x86_64; on Windows x86_64 `agentica check` of every
+  file and the unit tests (no pty). Claim a system as supported only where CI runs the terminal tests on it.
 
 ## Rules
 

@@ -6,8 +6,9 @@ native code, no C compiler.
 
 ## Install
 
-Needs Agentica 0.39.0 or later, on Linux for now (macOS and Windows are checked in a later change), with standard
-input and output on a terminal that takes VT sequences. There is no release tag yet: pin a commit of `main` in
+Needs Agentica 0.39.0 or later and standard input and output on a terminal that takes VT sequences. CI runs the unit
+tests and the pseudo-terminal tests on Linux x86_64, macOS arm64 and macOS x86_64. On Windows x86_64 it checks the code
+and runs the unit tests only: the terminal is not tested there. There is no release tag yet: pin a commit of `main` in
 `agentica.toml`:
 
 ```toml
