@@ -55,6 +55,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The package needs Agentica 0.39.0, where `Term` is a reserved type name; the fake terminal of `TUI.Testing` keeps its state in `TermState`.
 - **Breaking:** `TUI.Backend` has `suspend` and `resume`, which a backend built by hand gives; a `case` over `Cmd`
   needs `Suspend`.
 - **Breaking:** in `InputMode.Esc`, `Char` and `Key` events can carry `alt: true`, and a terminal key can carry

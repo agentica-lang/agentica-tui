@@ -26,7 +26,7 @@ struct Size
 end
 
 # What the terminal shows (`front`, as the last present left it) and what the calls after that drew (`back`).
-struct Term
+struct TermState
   back: Gr.Grid
   back_cursor: Optional[Bd.Cursor] = none
   front: Gr.Grid
@@ -40,7 +40,7 @@ struct Fake
   calls: Channel[Call]
   # The size now, and the terminal with the calls read so far: each a channel of one value, taken and put back.
   size: Channel[Size]
-  term: Channel[Term]
+  term: Channel[TermState]
 end
 
 ## A fake terminal of `width` by `height`.
@@ -48,7 +48,7 @@ def new(width: Int, height: Int) -> Fake
   fake = Fake(events: Channel.new(EVENTS), calls: Channel.new(CALLS), size: Channel.new(1), term: Channel.new(1))
   _ = fake.size.send(Size(width: width, height: height), 0)
   blank = Gr.blank(width, height)
-  _ = fake.term.send(Term(back: blank, front: blank, front_text: text(blank)), 0)
+  _ = fake.term.send(TermState(back: blank, front: blank, front_text: text(blank)), 0)
   fake
 end
 
@@ -155,7 +155,7 @@ def size(fake: Fake) -> Size
   now
 end
 
-def shown(fake: Fake) -> Term
+def shown(fake: Fake) -> TermState
   now = fake.term.recv(WAIT_MS).unwrap!
   _ = fake.term.send(now, WAIT_MS)
   now
@@ -182,7 +182,7 @@ end
 
 # The terminal after one call: a present shows what was drawn; a clear, or a draw after a size change, starts from a
 # blank screen.
-def after(now: Size, term: Term, call: Call) -> Term
+def after(now: Size, term: TermState, call: Call) -> TermState
   case call
     Call.Presented -> term.with(front: term.back, front_cursor: term.back_cursor, front_text: presented_text(term))
     Call.Cursor(x, y) -> term.with(back_cursor: some(Bd.Cursor(x: x, y: y)))
@@ -204,13 +204,13 @@ end
 def text(grid: Gr.Grid) -> List[String] = grid.rows.map { |row| row_text(row) }
 
 # Only the rows that changed since the last present are read again.
-def presented_text(term: Term) -> List[String]
+def presented_text(term: TermState) -> List[String]
   return text(term.back) if term.back.height != term.front.height or term.back.width != term.front.width
 
   (0...term.back.height).to_a.map { |y| changed_text(term, y) }
 end
 
-def changed_text(term: Term, y: Int) -> String
+def changed_text(term: TermState, y: Int) -> String
   return term.front_text[y] if term.back.rows[y] == term.front.rows[y]
 
   row_text(term.back.rows[y])
