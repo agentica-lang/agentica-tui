@@ -8,12 +8,11 @@ native code, no C compiler.
 
 Needs Agentica 0.39.0 or later and standard input and output on a terminal that takes VT sequences. CI runs the unit
 tests and the pseudo-terminal tests on Linux x86_64, macOS arm64 and macOS x86_64. On Windows x86_64 it checks the code
-and runs the unit tests only: the terminal is not tested there. There is no release tag yet: pin a commit of `main` in
-`agentica.toml`:
+and runs the unit tests only: the terminal is not tested there. Add the release tag in `agentica.toml`:
 
 ```toml
 [dependencies]
-tui = { git = "https://github.com/agentica-lang/agentica-tui", ref = "COMMIT" }
+tui = { git = "https://github.com/agentica-lang/agentica-tui", tag = "0.1.0" }
 ```
 
 ## Example
