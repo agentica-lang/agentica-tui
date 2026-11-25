@@ -1,7 +1,7 @@
 ## The terminal by hand with `TUI.Raw` (examples/view.agc is the Elm loop): a box that moves with the arrow keys or a
 ## mouse click; the top line shows the size of the terminal and the last event. q or Escape quits.
 ##
-## Run it from the repository after `make native`: `agentica examples/box.agc`.
+## Run it from the repository: `agentica examples/box.agc`.
 
 import TUI from "../tui"
 

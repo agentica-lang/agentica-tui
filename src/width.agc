@@ -1,7 +1,6 @@
-## How many terminal columns text takes, as termbox2 draws it: glibc's wcwidth(3) for each code point (the table of
+## How many terminal columns text takes, as terminals draw it: glibc's wcwidth(3) for each code point (the table of
 ## `width_table.agc`), 0 for combining marks and zero-width joiners, 2 for wide ones; a character that is not
-## printable is drawn as U+FFFD, one column. A ZWJ emoji sequence takes the columns of each emoji, as termbox2 draws
-## it. Pure.
+## printable is drawn as U+FFFD, one column. A ZWJ emoji sequence takes the columns of each emoji. Pure.
 
 import Table from "width_table"
 

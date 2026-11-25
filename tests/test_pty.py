@@ -1,10 +1,10 @@
 """End-to-end tests: Agentica programs under a pseudo-terminal.
 
 Each test starts a program of tests/fixtures/ with the slave side of a new
-pty as its controlling terminal (termbox2 opens /dev/tty), writes keys to the
-master side and reads what the program sends to the screen. Standard library
-only; `make native` must have built the library first. AGENTICA names the
-binary (default: agentica on PATH).
+pty as its standard input, output and controlling terminal, writes keys to the
+master side and reads what the program sends to the screen. Like a real
+terminal, the harness answers a status request (`ESC [ 5 n`). Standard library
+only. AGENTICA names the binary (default: agentica on PATH).
 """
 
 import fcntl
@@ -24,9 +24,12 @@ FIXTURES = ROOT / "tests" / "fixtures"
 AGENTICA = os.environ.get("AGENTICA", "agentica")
 TIMEOUT = 10.0
 
-# What termbox2 sends for xterm: enter and leave the alternate screen.
+# Enter and leave the alternate screen.
 ENTER_SCREEN = b"\x1b[?1049h"
 LEAVE_SCREEN = b"\x1b[?1049l"
+# The terminal's status report: asked with ESC [ 5 n, answered with ESC [ 0 n.
+STATUS_REQUEST = b"\x1b[5n"
+STATUS_REPLY = b"\x1b[0n"
 
 
 # An escape sequence: CSI (ESC [ ... final byte) or ESC and one or two bytes.
@@ -38,7 +41,7 @@ def set_size(fd: int, rows: int, cols: int) -> None:
 
 
 def screen_rows(output: bytes, rows: int = 24, cols: int = 80) -> list[str]:
-    """The text a terminal shows after `output`: only what termbox2 sends to
+    """The text a terminal shows after `output`: only what the program sends to
     draw cells (cursor moves `ESC [ row ; col H`, clears, characters)."""
     grid = [[" "] * cols for _ in range(rows)]
     row = col = 0
@@ -113,7 +116,13 @@ class Terminal:
 
     def finish(self) -> int:
         """Waits for the exit and reads the rest of the output; gives the exit code."""
-        code = self.process.wait(TIMEOUT)
+        deadline = time.monotonic() + TIMEOUT
+        # Reads meanwhile: the program may wait for the answer to a status request.
+        while self.process.poll() is None:
+            if time.monotonic() > deadline:
+                raise AssertionError("the program did not exit")
+            self._read(0.02)
+        code = self.process.wait()
         while self._read(0.1):
             pass
         return code
@@ -131,6 +140,8 @@ class Terminal:
             return False
         chunk = os.read(self.master, 65536)
         self.output += chunk
+        if STATUS_REQUEST in chunk:
+            os.write(self.master, STATUS_REPLY)
         return bool(chunk)
 
 
@@ -257,7 +268,7 @@ class PtyTest(unittest.TestCase):
         term = self.start("events.agc")
         term.wait_for_row(0, "ready 80x24")
         steps = [
-            (b"\x1bOA", "Event.Key(Key.Up"),  # xterm in keypad mode, as termbox2 sets it
+            (b"\x1bOA", "Event.Key(Key.Up"),  # xterm in keypad mode
             (b"\x1bOD", "Event.Key(Key.Left"),
             (b"a", 'Event.Char("a"'),
             ("ñ".encode(), 'Event.Char("ñ"'),
@@ -373,7 +384,7 @@ class PtyTest(unittest.TestCase):
             (b"\x1b[<0;5;3Ma", 'Event.Char("a"'),
             (b"\x1b[<0;5;3M\x1b[<0;6;4m", "Event.Mouse(Mouse.Release, 5, 3"),
             (b"\x1b[<2;1;1M\x1b[200~hi\x1b[201~", 'Event.Paste("hi")'),
-            (b"\x1b[32;7;8M\x1b[5;6;7Xb", 'Event.Char("b"'),
+            (b"\x1b[5;6;7Xb", 'Event.Char("b"'),
         ]
         for data, shown in writes:
             term.send(data)
@@ -394,7 +405,6 @@ class PtyTest(unittest.TestCase):
                 f"Event.Mouse(Mouse.Release, 5, 3, {plain})",
                 f"Event.Mouse(Mouse.Right, 0, 0, {plain})",
                 'Event.Paste("hi")',
-                f"Event.Mouse(Mouse.Left, 6, 7, {plain})",
                 f'Event.Char("b", {plain})',
             ],
         )
@@ -454,7 +464,7 @@ class PtyTest(unittest.TestCase):
             term.send(b"hello there\n")
             term.wait_for(b"\x1b[?2004h", prompt)
             term.wait_for_row(0, "back hello there, ctrl+c true")
-            for mode in (ENTER_SCREEN, b"\x1b[?1000h", b"\x1b[38;2;10;20;30m"):
+            for mode in (ENTER_SCREEN, b"\x1b[?1000h", b"\x1b[0;38;2;10;20;30m"):
                 self.assertIn(mode, term.output[prompt:])
             # A paste of q is text, not the quit key: the paste marks and their reader are back.
             term.send(b"\x1b[200~q\x1b[201~")
@@ -503,7 +513,7 @@ class PtyTest(unittest.TestCase):
         screen = term.output[term.output.index(ENTER_SCREEN) :]
         self.assertEqual(screen_rows(screen)[:3], ["ready 80x24", "  #", ""])
         # '#' is bold and red (output mode Normal: SGR 31).
-        self.assertIn(b"\x1b[1m\x1b[31m\x1b[2;3H#", screen)
+        self.assertIn(b"\x1b[2;3H\x1b[0;1;31m#", screen)
         term.send(b"q")
         self.assertEqual(term.finish(), 0)
 
@@ -516,12 +526,13 @@ class PtyTest(unittest.TestCase):
         self.assertIn(b"task crashed: RUNTIME-INDEX-OUT-OF-RANGE", after)
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
-    def test_an_exit_inside_open_still_restores_the_terminal(self) -> None:
+    def test_an_exit_inside_open_gives_the_shell_its_modes_back(self) -> None:
         term = self.start("exit.agc")
-        at = term.wait_for(b"drawn")
+        term.wait_for(b"drawn")
 
         self.assertEqual(term.finish(), 3)
-        self.assertIn(LEAVE_SCREEN, term.output[at:])
+        # The VM gives back raw mode; the alternate screen stays, as nothing runs after System.exit.
+        self.assertNotIn(LEAVE_SCREEN, term.output)
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
     def test_a_second_open_fails_and_changes_nothing(self) -> None:
@@ -530,9 +541,8 @@ class PtyTest(unittest.TestCase):
         self.assertEqual(term.finish(), 0)
         self.assertEqual(term.output.count(ENTER_SCREEN), 2)
         lines = ESCAPE.sub("", term.output[term.output.rindex(LEAVE_SCREEN) :].decode()).split("\r\n")
-        self.assertEqual(lines[0], "before C")
-        self.assertRegex(lines[1], r'^first ok\("error\(.*initialized already.*\) inside .*UTF-8"\)$')
-        self.assertEqual(lines[2:], ["after C", 'again ok("drawn")', ""])
+        self.assertEqual(lines[0], 'first ok("error(\\"tui: open failed: a screen is open already\\")")')
+        self.assertEqual(lines[1:], ['again ok("drawn")', ""])
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
     def test_drawing_while_a_wait_runs_and_closing_ends_the_wait(self) -> None:
@@ -540,19 +550,20 @@ class PtyTest(unittest.TestCase):
 
         self.assertEqual(term.finish(), 0)
         screen = term.output[: term.output.rindex(LEAVE_SCREEN)]
-        self.assertIn(b"\x1b[38;5;196m\x1b[1;1Hpalette", screen)
-        self.assertIn(b"\x1b[38;2;255;128;0m\x1b[2;1Htrue color", screen)
+        self.assertIn(b"\x1b[1;1H\x1b[0;38;5;196mpalette", screen)
+        self.assertIn(b"\x1b[2;1H\x1b[0;38;2;255;128;0mtrue color", screen)
         self.assertIn(b"\x1b[3;6H", screen)  # the cursor at column 5, row 2
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
         self.assertIn(b'waiter error("tui: the screen is closed")', after)
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
-    def test_a_draw_after_the_close_is_refused(self) -> None:
+    def test_a_call_after_the_close_is_an_error(self) -> None:
         term = self.start("closed.agc")
 
-        self.assertEqual(term.finish(), 1)
+        self.assertEqual(term.finish(), 0)
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
-        self.assertIn(b"RUNTIME-NATIVE-CLOSED", after)
+        lines = ESCAPE.sub("", after.decode()).split("\r\n")
+        self.assertEqual(lines[:2], ['error("tui: the screen is closed")'] * 2)
         self.assertNotIn(b"late", after)
 
     def test_open_without_a_terminal_is_an_error(self) -> None:

@@ -31,13 +31,13 @@ end
 
 `Key` is `Up`, `Down`, `Left`, `Right`, `Enter`, `Escape`, `Tab`, `BackTab`, `Backspace`, `Insert`, `Delete`, `Home`, `End`, `PageUp`, `PageDown`, `F(n)` (1 to 12), `Ctrl("c")` (lowercase for a letter) or `Other(code)`. `Mods` has `alt`, `ctrl`, `shift` and `motion` (a mouse move with a button down).
 
-A lone Escape byte is read as `Key.Escape` (`InputMode.Esc`, the default) or as Alt with the next key (`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`. In both modes, Escape read together with Enter, Backspace or a printable ASCII character other than `[` and `O` (which start escape sequences) is that key with Alt, as a terminal sends Alt+Enter, Alt+Backspace or Alt+B: `Key(Key.Enter, Mods(alt: true))`, `Char("b", Mods(alt: true))`. The trade-off in `InputMode.Esc`: Escape and a key typed so fast that they arrive in one read are Alt and that key too.
+A lone Escape byte waits 50 ms for a byte that goes on a sequence, and is read as `Key.Escape` (`InputMode.Esc`, the default) or as Alt with the next key (`InputMode.Alt`): `TUI.App(..., input: TUI.InputMode.Alt)`. In both modes, Escape read together with Enter, Backspace or a printable ASCII character other than `[` and `O` (which start escape sequences) is that key with Alt, as a terminal sends Alt+Enter, Alt+Backspace or Alt+B: `Key(Key.Enter, Mods(alt: true))`, `Char("b", Mods(alt: true))`. The trade-off in `InputMode.Esc`: Escape and a key typed so fast that they arrive in one read are Alt and that key too.
 
 A terminal key (an arrow, Home, Delete...) keeps the Ctrl of its escape sequence: Ctrl+Left is `Key(Key.Left, Mods(ctrl: true))`. Enter, Tab, Backspace and Escape never carry Ctrl.
 
 ## Mouse
 
-Mouse events come only with `TUI.App(..., mouse: true)`. `Mouse` is `Left`, `Right`, `Middle`, `Release`, `WheelUp` or `WheelDown`. A report whose cell is outside the screen gives the nearest cell inside it.
+Mouse events come only with `TUI.App(..., mouse: true)`, as SGR reports (mode 1006). `Mouse` is `Left`, `Right`, `Middle`, `Release`, `WheelUp` or `WheelDown`. A report whose cell is outside the screen gives the nearest cell inside it.
 
 ## Paste
 
@@ -51,4 +51,4 @@ A program that writes its own end mark inside a paste can still inject keys. So 
 
 ## Resize
 
-`Resize(width, height)` comes when the terminal changes size; `TUI.Raw.width(screen)` and `TUI.Raw.height(screen)` give the new size after it. `TUI.run` draws the view again after a resize, with or without `Sub.Events`.
+`Resize(width, height)` comes when the terminal changes size (the resize signal of the system, `System.Signal.Winch`; on Windows the VM looks at the size about every quarter second); `TUI.Raw.width(screen)` and `TUI.Raw.height(screen)` give the new size after it. `TUI.run` draws the view again after a resize, with or without `Sub.Events`.

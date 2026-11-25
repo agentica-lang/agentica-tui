@@ -6,13 +6,13 @@ description: Install the package, write a first program and run it.
 
 ## Install
 
-agentica-tui needs Agentica 0.39.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
+agentica-tui needs Agentica 0.39.0 or later, and standard input and output on a terminal that takes VT sequences. There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
 ```
 
-That writes the line of `agentica.toml` and the entry of `agentica.lock`, and puts the package in `deps/`. No C compiler is needed: the package ships its library ([Native library](native.md)).
+That writes the line of `agentica.toml` and the entry of `agentica.lock`, and puts the package in `deps/`. The package is Agentica alone: no C compiler is needed.
 
 ## A first program
 

@@ -1,6 +1,6 @@
 ## A view tree in the loop of `TUI.run`: a counter in a box. + and - change it, q quits.
 ##
-## Run it from the repository after `make native`: `agentica examples/view.agc`.
+## Run it from the repository: `agentica examples/view.agc`.
 
 import TUI from "../tui"
 

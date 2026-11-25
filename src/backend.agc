@@ -1,5 +1,5 @@
 ## What a program needs of a terminal, as a record of functions: its size, drawing cells and showing them, waiting
-## for events, and the modes. termbox2 is one backend (`termbox.agc`); a fake one (`fake.agc`) runs a program in a
+## for events, and the modes. the terminal is one backend (`terminal.agc`); a fake one (`fake.agc`) runs a program in a
 ## test.
 
 import Ev from "event"
@@ -49,7 +49,7 @@ def render(
   last: Optional[Gr.Grid] = none,
   cursor: Optional[Optional[Cursor]] = none,
 ) -> Result[Gr.Grid]
-  # The size is read after the clear: termbox2 takes a new size then.
+  # The size is read after the clear: a resize that came before it gives the new size to the buffers.
   shown = case last
     some(grid) -> grid
     none -> try cleared(backend)

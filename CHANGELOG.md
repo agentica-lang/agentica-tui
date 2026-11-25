@@ -32,8 +32,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `Color` and `Attr`.
 - Events: `poll_event` and `peek_event(timeout_ms)` give `Event.Key`, `Char`, `Mouse` or `Resize`; other tasks run,
   and may draw, while they wait; closing the screen ends a wait with an error.
-- A mouse event with a key the library does not name is `Event.Key(Key.Other(code), mods)`; an unknown event kind
-  is skipped.
+- A key the library does not name (`CSI n ~`) is `Event.Key(Key.Other(n), mods)`; an unknown sequence is dropped.
 - `Style` has the fields `bold`, `dim`, `italic`, `underline` and `reverse` (`attrs` still works), and
   `TUI.merge(base, over)` puts one style on top of another.
 - A view tree: `TUI.Node`, built with `TUI.text`, `row`, `col`, `box` and `spacer`, drawn by
@@ -41,20 +40,33 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   cells without a terminal.
 - `TUI.program(screen, app)`, the Elm loop on an open screen: a `TUI.App` of `model`, `update`, `view` and
   `subscriptions`; `update` gives a `Step` of the next model and its commands.
-- An SGR (1006) or urxvt (1015) mouse report keeps the input after it (a key, another report, a paste): the library
-  reads these reports itself, strictly, and drops an unknown CSI sequence with parameters instead of reading it as
-  a click; Alt+[ and a letter stay Escape (or Alt) and the characters.
+- An SGR (1006) mouse report keeps the input after it (a key, another report, a paste): the library reads these
+  reports strictly, and drops an unknown CSI sequence with parameters instead of reading it as a click; Alt+[ and a
+  letter stay Escape (or Alt) and the characters.
 - The README is short; the guide is the docs site, https://www.agentica-lang.com/agentica-tui/, one topic per page,
   with screenshots of the examples.
 - Bracketed paste: the screen turns it on and off, and a paste is one `Event.Paste(text)`, so its keys never come
   as key events. A `case` over `Event` needs the new variant (or `_`).
 - `set_input_mode` (Escape or Alt, mouse on or off) and `set_output_mode` (`Normal`, `Colors256`, `Truecolor`).
-- termbox2 v2.5.0, vendored, built into `libtermbox2`; the package ships it prebuilt for Linux x86_64 (glibc 2.33 or
-  later), so `agentica add` and `agentica install` work with no C compiler. sha256 `7ed550797896a3ba5d1b34b1e9b87258666fa1c2a7f3938b48c0d5ba2cba20b9`; CI checks it is byte
-  for byte a fresh build on ubuntu-22.04.
 
 ### Changed
 
+- **Breaking:** the package is written in Agentica alone, on `Terminal` (raw mode, size, resize signal) and VT
+  sequences: termbox2, `native/` and the prebuilt `libtermbox2.so` are gone, so there is no C code to build or
+  trust. What changes for a program:
+  - The terminal is standard input and output, which must both be terminals (it was `/dev/tty`); `open` is an error
+    otherwise.
+  - A call on a closed screen is `error("tui: the screen is closed")` (it stopped the task with
+    `RUNTIME-NATIVE-CLOSED`).
+  - `System.exit` inside `open` gives back the terminal's mode, but no longer leaves the alternate screen.
+  - The process keeps its `LC_CTYPE`: the library no longer measures characters with the C library.
+  - Mouse reports are SGR (1006) only; the older urxvt (1015) and X10 forms are not read.
+  - A lone Escape waits 50 ms for the rest of a sequence before it is the key.
+  - A mouse report has the `shift`, `alt` and `ctrl` of its button code in `mods`.
+  - The named colors show in every output mode, `Index` in `Colors256` and `Truecolor`, `Rgb` in `Truecolor`; a color
+    the mode cannot show is the terminal's own.
+  - `suspend` and the close ask the terminal for its status (`ESC [ 5 n`) so that no read of standard input is left
+    pending; a terminal that does not answer delays them by half a second.
 - The package needs Agentica 0.39.0, where `Term` is a reserved type name; the fake terminal of `TUI.Testing` keeps
   its state in `TermState`.
 - **Breaking:** `TUI.Backend` has `suspend` and `resume`, which a backend built by hand gives; a `case` over `Cmd`
