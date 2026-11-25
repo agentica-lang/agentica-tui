@@ -563,7 +563,7 @@ class PtyTest(unittest.TestCase):
     def test_the_close_restores_the_terminal_when_a_task_cancelled_mid_draw_took_the_lock(self) -> None:
         term = self.start("lost.agc")
         # Not read: the drawing task fills the pty and waits inside its write, with the screen taken.
-        time.sleep(1.5)
+        time.sleep(2.5)
 
         self.assertEqual(term.finish(), 0)
         after = term.output[term.output.rindex(LEAVE_SCREEN) :]
