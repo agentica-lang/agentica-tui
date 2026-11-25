@@ -5,7 +5,7 @@ import Bd from "backend"
 import Ev from "event"
 import Gr from "grid"
 import St from "style"
-import Tb from "termbox"
+import Tm from "terminal"
 import View from "view"
 
 ## An effect for `program` to run.
@@ -52,7 +52,7 @@ end
 
 ## Opens the terminal, runs `app` on it with `program` and closes it. Gives the last model, or the error once the
 ## terminal is restored.
-def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tb.open(->(screen) { program(Tb.backend(screen), app) })
+def run[M, Msg](app: App[M, Msg]) -> Result[M] = Tm.open(->(screen) { program(Tm.backend(screen), app) })
 
 ## Runs `app` on a terminal backend until a command is `Cmd.Quit`, and gives the last model. After the messages that
 ## came together it draws `view(model)`. Gives an error when the terminal fails or `update`, `view`,
@@ -66,8 +66,7 @@ def program[M, Msg](backend: Bd.Backend, app: App[M, Msg]) -> Result[M]
   # The loop runs in a task of its own so that a crash in the app's functions comes back as an error and the
   # reader still stops.
   result = Task.await(Task.spawn do loop(backend, app, inbox) end)
-  # Not a cancel: a cancelled task's wait may still run in termbox2 after the await, take a key from the caller and
-  # hold the screen open.
+  # Not a cancel: the reader ends its wait and stops by itself, so that it takes no event after the loop.
   stop.close
   Task.await(reader)
   restored = restore.call()

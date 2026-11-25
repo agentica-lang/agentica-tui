@@ -1,4 +1,4 @@
-## A terminal UI library on termbox2: an Elm loop over a view tree, with key, mouse, paste, resize and tick
+## A terminal UI library in Agentica alone: an Elm loop over a view tree, with key, mouse, paste, resize and tick
 ## messages. `Raw` is the terminal by hand: cells, present and waiting for events.
 ##
 ## ```ruby
@@ -33,7 +33,7 @@ import Fk from "src/fake"
 import Gr from "src/grid"
 import Pg from "src/program"
 import St from "src/style"
-import Tb from "src/termbox"
+import Tm from "src/terminal"
 import View from "src/view"
 import Wg from "src/widgets"
 
@@ -117,7 +117,7 @@ end
 ## The terminal by hand, for what `run` does not cover: open it, draw cells, show them, wait for events.
 module Raw
   ## The open terminal.
-  type Screen = Tb.Screen
+  type Screen = Tm.Screen
 
   ## A screen as a value, as `render` gives it.
   type Grid = Gr.Grid
@@ -127,72 +127,73 @@ module Raw
 
   ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
   ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened, or
-  ## `error("task crashed: ...")` when the block stops with a runtime error.
-  def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tb.open(body)
+  ## `error("task crashed: ...")` when the block stops with a runtime error. Do not run it in a task that gets
+  ## cancelled, and do not cancel a task that waits for an event or draws: it takes the screen along.
+  def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tm.open(body)
 
   ## The open screen as a backend of `program`.
-  def backend(screen: Screen) -> Bd.Backend = Tb.backend(screen)
+  def backend(screen: Screen) -> Bd.Backend = Tm.backend(screen)
 
   ## Runs `app` on a backend (an open screen, or a fake one), as `run` does, and gives the terminal back the modes it
   ## had before.
   def program[M, Msg](backend: Bd.Backend, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(backend, app)
 
-  ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.
-  def width(screen: Screen) -> Int = Tb.width(screen)
+  ## The width of the terminal in columns. It changes after a `Resize` event.
+  def width(screen: Screen) -> Int = Tm.width(screen)
 
   ## The height of the terminal in rows.
-  def height(screen: Screen) -> Int = Tb.height(screen)
+  def height(screen: Screen) -> Int = Tm.height(screen)
 
   ## Fills the back buffer with spaces of the style.
-  def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void] = Tb.clear(screen, style)
+  def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void] = Tm.clear(screen, style)
 
   ## Sets the cell at column x, row y (from 0) to one character.
   def set_cell(screen: Screen, x: Int, y: Int, char: String, style: St.Style = St.Style()) -> Result[Void]
-    Tb.set_cell(screen, x, y, char, style)
+    Tm.set_cell(screen, x, y, char, style)
   end
 
   ## Writes text from column x, row y; what goes past the right edge is cut. Gives the width of the text.
   def write(screen: Screen, x: Int, y: Int, text: String, style: St.Style = St.Style()) -> Result[Int]
-    Tb.write(screen, x, y, text, style)
+    Tm.write(screen, x, y, text, style)
   end
 
   ## Shows the back buffer on the terminal: nothing drawn appears before this.
-  def present(screen: Screen) -> Result[Void] = Tb.present(screen)
+  def present(screen: Screen) -> Result[Void] = Tm.present(screen)
 
   ## Draws `node` over the whole screen and shows it, writing only the cells that differ from `last`, and gives what
   ## the screen shows now.
   def render(screen: Screen, node: View.Node, last: Optional[Grid] = none) -> Result[Grid]
-    Tb.render(screen, node, last)
+    Tm.render(screen, node, last)
   end
 
   ## The cells to write to turn `old` into `new`.
   def diff(old: Grid, new: Grid) -> List[View.Cell] = Gr.diff(old, new)
 
   ## Shows the cursor at column x, row y.
-  def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = Tb.set_cursor(screen, x, y)
+  def set_cursor(screen: Screen, x: Int, y: Int) -> Result[Void] = Tm.set_cursor(screen, x, y)
 
   ## Hides the cursor.
-  def hide_cursor(screen: Screen) -> Result[Void] = Tb.hide_cursor(screen)
+  def hide_cursor(screen: Screen) -> Result[Void] = Tm.hide_cursor(screen)
 
   ## Waits for the next event; other tasks run (and may draw) meanwhile.
-  def poll_event(screen: Screen) -> Result[Ev.Event] = Tb.poll_event(screen)
+  def poll_event(screen: Screen) -> Result[Ev.Event] = Tm.poll_event(screen)
 
   ## Waits up to timeout_ms milliseconds for an event: `none` when none came.
-  def peek_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]] = Tb.peek_event(screen, timeout_ms)
+  def peek_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]] = Tm.peek_event(screen, timeout_ms)
 
   ## Sets how Escape is read, and whether mouse events come.
   def set_input_mode(screen: Screen, mode: Ev.InputMode, mouse: Bool = false) -> Result[Void]
-    Tb.set_input_mode(screen, mode, mouse: mouse)
+    Tm.set_input_mode(screen, mode, mouse: mouse)
   end
 
   ## Sets how colors are sent.
-  def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void] = Tb.set_output_mode(screen, mode)
+  def set_output_mode(screen: Screen, mode: St.OutputMode) -> Result[Void] = Tm.set_output_mode(screen, mode)
 
   ## Gives the terminal back as it was before `open` (main screen, its own modes), so that another program can use it;
   ## the screen stays open, and an event wait reads nothing until `resume`. Calling it again changes nothing.
-  def suspend(screen: Screen) -> Result[Void] = Tb.suspend(screen)
+  def suspend(screen: Screen) -> Result[Void] = Tm.suspend(screen)
 
   ## Takes the terminal again after `suspend`, with the modes it had, and reads its size again. Nothing drawn before
   ## shows: draw the whole screen again. Calling it again changes nothing.
-  def resume(screen: Screen) -> Result[Void] = Tb.resume(screen)
+  def resume(screen: Screen) -> Result[Void] = Tm.resume(screen)
 end

@@ -1,5 +1,5 @@
 """Writes src/width_table.agc: the columns of each code point from U+0300 on, as glibc's wcwidth(3) gives
-them in a UTF-8 locale, which is what termbox2 draws with. A character that is not printable is drawn as U+FFFD, one
+them in a UTF-8 locale, which most terminals follow. A character that is not printable is drawn as U+FFFD, one
 column. Run it again on a newer glibc to follow a newer Unicode, then `agentica fmt src/width_table.agc`."""
 
 import ctypes

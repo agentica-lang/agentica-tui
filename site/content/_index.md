@@ -1,11 +1,11 @@
 ---
 title: agentica-tui
-description: A terminal UI package for Agentica. A typed view tree, an Elm-like loop, and key, mouse, paste and resize events, on termbox2.
+description: A terminal UI package for Agentica. A typed view tree, an Elm-like loop, and key, mouse, paste and resize events, in Agentica alone.
 ---
 
-agentica-tui is a terminal UI library for [Agentica](https://www.agentica-lang.com/agentica/): build a view tree, draw it full screen, and read key, mouse, paste and resize events. It calls [termbox2](https://github.com/termbox/termbox2) (v2.5.0, vendored) through the Agentica FFI.
+agentica-tui is a terminal UI library for [Agentica](https://www.agentica-lang.com/agentica/): build a view tree, draw it full screen, and read key, mouse, paste and resize events. It is written in Agentica alone, on the `Terminal` builtin: no native code.
 
-It needs Agentica 0.39.0 or later on Linux x86_64 (glibc 2.33 or later). There is no release tag yet: add the package at a commit of `main` (the whole commit id).
+It needs Agentica 0.39.0 or later, on Linux for now (macOS and Windows are checked in a later change), and a terminal that takes VT sequences. There is no release tag yet: add the package at a commit of `main` (the whole commit id).
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
@@ -52,8 +52,7 @@ In a terminal of 40 by 7 cells, after a few keys:
 - [Events](events.md): keys, mouse, paste and resize.
 - [Styles](styles.md): colors, attributes and `merge`.
 - [Low level](low-level.md): `TUI.Raw`, cells, `present`, waiting for events, tasks.
-- [Native library](native.md): termbox2, the `.so` and how CI builds it.
 - [Tests](tests.md): the test suites and how to test a view.
 - The source and the changelog are [on GitHub](https://github.com/agentica-lang/agentica-tui).
 
-agentica-tui is under the Apache License 2.0; termbox2 is MIT.
+agentica-tui is under the Apache License 2.0.

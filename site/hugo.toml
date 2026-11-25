@@ -15,7 +15,7 @@ enableGitInfo = true
   min = "0.167.0"
 
 [params]
-  description = "agentica-tui is a terminal UI package for Agentica: a typed view tree, an Elm-like loop, and key, mouse, paste and resize events, on termbox2."
+  description = "agentica-tui is a terminal UI package for Agentica: a typed view tree, an Elm-like loop, and key, mouse, paste and resize events, in Agentica alone."
   tagline = "a terminal UI package for Agentica"
   repo = "https://github.com/agentica-lang/agentica-tui"
   repoPublic = true

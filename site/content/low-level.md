@@ -1,7 +1,7 @@
 ---
 title: Low level
 weight: 6
-description: "TUI.Raw, the terminal by hand: cells, present, waiting for events, render, tasks and locks."
+description: "TUI.Raw, the terminal by hand: cells, present, waiting for events, render, tasks and limits."
 ---
 
 `TUI.Raw` is the terminal by hand, for what [`TUI.run`](elm-loop.md) does not cover. Under the [view tree](view-tree.md) is a grid of cells with a back buffer. Every function that can fail gives a `Result`.
@@ -52,12 +52,15 @@ end
 
 ## Tasks and locks
 
-`poll_event` and `peek_event` wait in calls of at most 50 ms. Other tasks run while they wait, and may draw: every termbox2 call holds one lock. Closing the screen (the end of the `open` block) ends a wait with an error.
+The screen is one value behind a lock: any task may draw while another waits for an event. `poll_event` and `peek_event` wait on the input without holding it. Closing the screen (the end of the `open` block) ends a wait with an error.
 
-A call with a screen after it is closed stops the task with `RUNTIME-NATIVE-CLOSED`. A close that lands between a wait's check that the screen is open and its next 50 ms call does the same, instead of giving the error.
+A call with a screen after it is closed gives `error("tui: the screen is closed")`, and one while it is suspended `error("tui: the terminal is suspended")`.
 
 ## Limits
 
-- One terminal per process: termbox2 keeps global state, so a second `open` while one is open is an error.
-- While the screen is open the process has a UTF-8 `LC_CTYPE` (termbox2 needs it to measure characters); the close puts the old one back.
-- Not bound: `tb_printf`, output modes 216 and grayscale.
+- One terminal per process: a second `open` while one is open is an error.
+- The terminal is standard input and output, and both must be terminals (`Terminal.tty?`): `open` is an error otherwise.
+- The VM gives back the terminal's mode when the program ends, `System.exit` in the `open` block too, but nothing runs then to leave the alternate screen: return from the block to close the screen.
+- `suspend` and the close ask the terminal for its status (`ESC [ 5 n`) so that the read of standard input that waits ends and takes none of the keys that follow (a read the VM cancels still races for them: agentica-lang/agentica#2013, and this workaround goes when it is fixed). A terminal that does not answer delays them by half a second, and an answer later than that lands in whatever reads the terminal next (a shell may show `^[[0n`).
+- Do not cancel a task that waits for an event or draws, and do not run `open` in a task that gets cancelled: a task cancelled while it holds the screen takes it along. The close still restores the terminal and ends the reader, but the screen is lost for the other tasks.
+- Mouse reports are the SGR form (1006); a terminal that only knows the older forms sends none.
