@@ -65,6 +65,14 @@ end
 private
 
 MAX_INDEX = 255
+# The levels of one channel of the palette's color cube, the first index of the cube and of the gray ramp, and the
+# ramp: 24 grays from 8, ten apart.
+CUBE = [0, 95, 135, 175, 215, 255]
+CUBE_START = 16
+GRAY_START = 232
+FIRST_GRAY = 8
+GRAY_STEP = 10
+LAST_GRAY_STEP = 23
 MAX_CHANNEL = 255
 REPLACEMENT = String.from_code(0xfffd)
 FIRST_PRINTABLE = 0x20
@@ -112,7 +120,13 @@ def cells(changed: List[View.Cell], output: St.OutputMode) -> String
     end
 
     out = out.push(printable(cell.char))
+    # A terminal may count a wide character, or a character with marks on it, in another number of columns than the
+    # width table: the next cell is placed by an absolute move.
     x = cell.x + Width.cell(cell.char)
+    if cell.char.length > 1 or Width.cell(cell.char) != 1
+      x = -1
+    end
+
     y = cell.y
   end
 
@@ -164,8 +178,7 @@ def color_params(color: St.Color, output: St.OutputMode, ground: Ground, bright:
   case color
     St.Color.Default -> []
     St.Color.Index(index) -> extended(ground, ["5", "#{index}"], output != St.OutputMode.Normal)
-    St.Color.Rgb(red, green, blue) ->
-      extended(ground, ["2", "#{red}", "#{green}", "#{blue}"], output == St.OutputMode.Truecolor)
+    St.Color.Rgb(red, green, blue) -> rgb_params(ground, output, red, green, blue)
     St.Color.Black -> named(ground, 0, bright)
     St.Color.Red -> named(ground, 1, bright)
     St.Color.Green -> named(ground, 2, bright)
@@ -175,6 +188,45 @@ def color_params(color: St.Color, output: St.OutputMode, ground: Ground, bright:
     St.Color.Cyan -> named(ground, 6, bright)
     St.Color.White -> named(ground, 7, bright)
   end
+end
+
+def rgb_params(ground: Ground, output: St.OutputMode, red: Int, green: Int, blue: Int) -> List[String]
+  case output
+    St.OutputMode.Truecolor -> extended(ground, ["2", "#{red}", "#{green}", "#{blue}"], true)
+    St.OutputMode.Colors256 -> extended(ground, ["5", "#{nearest_index(red, green, blue)}"], true)
+    St.OutputMode.Normal -> []
+  end
+end
+
+# The color of the 256-color palette nearest to a true color: the 6x6x6 cube (16 to 231) or the gray ramp (232 to 255),
+# whichever is closer.
+def nearest_index(red: Int, green: Int, blue: Int) -> Int
+  cube_red = level(red)
+  cube_green = level(green)
+  cube_blue = level(blue)
+  cube = distance([red, green, blue], [CUBE[cube_red], CUBE[cube_green], CUBE[cube_blue]])
+  step = [
+    [(red + green + blue) / 3 - FIRST_GRAY + GRAY_STEP / 2, 0].max.unwrap! / GRAY_STEP,
+    LAST_GRAY_STEP,
+  ].min.unwrap!
+
+  shade = FIRST_GRAY + step * GRAY_STEP
+  gray = distance([red, green, blue], [shade, shade, shade])
+  return GRAY_START + step if gray < cube
+
+  CUBE_START + 36 * cube_red + 6 * cube_green + cube_blue
+end
+
+# The index in CUBE of the level nearest to a channel.
+def level(value: Int) -> Int
+  return 0 if value < 48
+  return 1 if value < 115
+
+  [(value - 35) / 40, 5].min.unwrap!
+end
+
+def distance(a: List[Int], b: List[Int]) -> Int
+  (0...3).reduce(0) do |total, i| total + (a[i] - b[i]) * (a[i] - b[i]) end
 end
 
 # The first parameter of a palette or true color is 38 for the foreground and 48 for the background.

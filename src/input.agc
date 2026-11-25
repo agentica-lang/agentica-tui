@@ -250,17 +250,30 @@ def with_alt(event: Ev.Event) -> Ev.Event
   end
 end
 
+# `ESC O` and a letter; with digits between (`ESC O 5 P`, Ctrl+F1) the last number is the xterm modifier. A sequence
+# with parameters that names no key is dropped whole.
 def ss3(data: Bytes, at: Int, final: Bool) -> Taken
-  if at + 2 >= data.length
-    return Taken.Got(escape_key(), 1) if final
+  stop = at + 2
+  while stop < data.length and (DIGITS.include?(data[stop]) or data[stop] == SEMICOLON)
+    stop = stop + 1
+  end
+
+  if stop >= data.length
+    return Taken.Got(escape_key(), 1) if final and stop == at + 2
+    return Taken.Skip(data.length - at) if final
 
     return Taken.More
   end
 
-  case SS3_KEYS.get(String.from_code(data[at + 2]))
-    some(key) -> Taken.Got(Ev.Event.Key(key, Ev.Mods()), 3)
-    none -> Taken.Got(escape_key(), 1)
-  end
+  used = stop - at + 1
+  key = SS3_KEYS.get(String.from_code(data[stop]))
+  return Taken.Got(escape_key(), 1) if stop == at + 2 and key.none?
+
+  params = fields(data, at + 2, stop)
+  return Taken.Skip(used) if key.none? or params.none?
+
+  numbers = params.unwrap!
+  Taken.Got(Ev.Event.Key(key.unwrap!, mods_of(numbers, numbers.size - 1)), used)
 end
 
 def csi(data: Bytes, at: Int, final: Bool) -> Taken
@@ -393,7 +406,7 @@ end
 
 # The modifiers of the xterm parameter at `index`: 1 plus the bits shift (1), alt (2), ctrl (4) and meta (8).
 def mods_of(params: List[Int], index: Int) -> Ev.Mods
-  return Ev.Mods() if params.size <= index or params[index] < 1
+  return Ev.Mods() if index < 0 or params.size <= index or params[index] < 1
 
   bits = params[index] - 1
   Ev.Mods(shift: bit?(bits, 1), alt: bit?(bits, 2) or bit?(bits, 8), ctrl: bit?(bits, 4))
@@ -409,6 +422,11 @@ def utf8(data: Bytes, at: Int, final: Bool) -> Taken
   return bad if length == 0
 
   left = data.length - at
+  # A byte that cannot continue the character ends it there: only the lead is U+FFFD, and the byte is read afresh.
+  for i in 1...[left, length].min.unwrap!
+    return bad if data[at + i].bit_and(0xc0) != 0x80
+  end
+
   if left < length
     return Taken.Got(Ev.Event.Char(String.from_code(REPLACEMENT), Ev.Mods()), left) if final
 

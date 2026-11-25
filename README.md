@@ -6,9 +6,9 @@ native code, no C compiler.
 
 ## Install
 
-Needs Agentica 0.39.0 or later and a terminal that takes VT sequences (xterm and its relatives, and the terminals
-of Linux, macOS and Windows 10 or later). Standard input and output must be a terminal. There is no release tag yet:
-pin a commit of `main` in `agentica.toml`:
+Needs Agentica 0.39.0 or later, on Linux for now (macOS and Windows are checked in a later change), with standard
+input and output on a terminal that takes VT sequences. There is no release tag yet: pin a commit of `main` in
+`agentica.toml`:
 
 ```toml
 [dependencies]

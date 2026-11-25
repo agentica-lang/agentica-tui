@@ -61,5 +61,6 @@ A call with a screen after it is closed gives `error("tui: the screen is closed"
 - One terminal per process: a second `open` while one is open is an error.
 - The terminal is standard input and output, and both must be terminals (`Terminal.tty?`): `open` is an error otherwise.
 - The VM gives back the terminal's mode when the program ends, `System.exit` in the `open` block too, but nothing runs then to leave the alternate screen: return from the block to close the screen.
-- `suspend` and the close ask the terminal for its status (`ESC [ 5 n`) so that the read of standard input that waits ends and takes none of the keys that follow. A terminal that does not answer delays them by half a second.
+- `suspend` and the close ask the terminal for its status (`ESC [ 5 n`) so that the read of standard input that waits ends and takes none of the keys that follow (a read the VM cancels still races for them: agentica-lang/agentica#2013, and this workaround goes when it is fixed). A terminal that does not answer delays them by half a second, and an answer later than that lands in whatever reads the terminal next (a shell may show `^[[0n`).
+- Do not cancel a task that waits for an event or draws, and do not run `open` in a task that gets cancelled: a task cancelled while it holds the screen takes it along. The close still restores the terminal and ends the reader, but the screen is lost for the other tasks.
 - Mouse reports are the SGR form (1006); a terminal that only knows the older forms sends none.

@@ -6,7 +6,7 @@ description: Install the package, write a first program and run it.
 
 ## Install
 
-agentica-tui needs Agentica 0.39.0 or later, and standard input and output on a terminal that takes VT sequences. There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
+agentica-tui needs Agentica 0.39.0 or later, on Linux for now (macOS and Windows are checked in a later change), and standard input and output on a terminal that takes VT sequences. There is no release tag yet, so add the package at a commit of `main` (the whole commit id):
 
 ```sh
 agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT

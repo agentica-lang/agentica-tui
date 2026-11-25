@@ -99,6 +99,16 @@ def main() -> Void
       bad = Bytes.from_list([0xff, 0xc3, 0x61, 0xed, 0xa0, 0x80]).unwrap!
       Test.eq(In.feed(In.Parser(), bad, Ev.InputMode.Esc).events, [char("�"), char("�"), char("a"), char("�")])
     end,
+    Test.test("an SS3 sequence with digits is one unit, and a cut character ends at its bad byte") do
+      try Test.eq(events_of("^O5P"), [key(Ev.Key.F(1), CTRL)])
+      try Test.eq(events_of("^O1;3Aa"), [key(Ev.Key.Up, ALT), char("a")])
+      try Test.eq(events_of("^O5Xa"), [char("a")])
+      try Test.eq(after_reads(["^O", "5", "P"], Ev.InputMode.Esc).events, [key(Ev.Key.F(1), CTRL)])
+      # E2 starts a three-byte character: A cannot continue it.
+      cut = In.feed(In.Parser(), Bytes.from_list([0xe2, 0x41]).unwrap!, Ev.InputMode.Esc)
+      try Test.eq(cut.events, [char("�"), char("A")])
+      Test.eq(cut.parser.rest, "".bytes)
+    end,
     Test.test("a paste is one event: its keys never arrive, its line ends are \\n") do
       text = "hi \nthere" + String.from_code(27) + "[A"
       try Test.eq(events_of("^[200~hi \r\nthere^[A^[201~x"), [Ev.Event.Paste(text), char("x")])

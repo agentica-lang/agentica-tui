@@ -51,4 +51,4 @@ A program that writes its own end mark inside a paste can still inject keys. So 
 
 ## Resize
 
-`Resize(width, height)` comes when the terminal changes size (the resize signal of the system, `System.Signal.Winch`; on Windows the VM looks at the size about every quarter second); `TUI.Raw.width(screen)` and `TUI.Raw.height(screen)` give the new size after it. `TUI.run` draws the view again after a resize, with or without `Sub.Events`.
+`Resize(width, height)` comes when the terminal changes size (the resize signal of the system, `System.Signal.Winch`); `TUI.Raw.width(screen)` and `TUI.Raw.height(screen)` give the new size after it. `TUI.run` draws the view again after a resize, with or without `Sub.Events`.

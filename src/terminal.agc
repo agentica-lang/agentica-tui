@@ -21,12 +21,21 @@ struct Screen
   live: Channel[Live]
   inbox: Channel[Item]
   reading: Channel[Reading]
+  # The tasks and the subscription are kept outside the lock of `live`, so that the close ends them (and restores the
+  # terminal) even when a task cancelled while it held the lock took the lock with it.
+  reader: Channel[Reader]
+  watcher: Task[Void]
+  signals: Channel[System.Signal]
 end
 
 ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
 ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened (standard input or
 ## output is not a terminal, one is open already), or `error("task crashed: ...")` when the block stops with a
 ## runtime error.
+##
+## Do not run it in a task that gets cancelled, and do not cancel a task that waits for an event or draws: a task
+## cancelled while it holds the screen takes it along. The close then still gives the terminal back, but the screen is
+## lost for the other tasks.
 def open[T](body: Fn[Screen, Result[T]]) -> Result[T]
   screen = try start()
   # The block runs in a task of its own so that a crash comes back as an error, which the caller can show once the
@@ -40,10 +49,10 @@ def open[T](body: Fn[Screen, Result[T]]) -> Result[T]
 end
 
 ## The width of the terminal in columns. It changes after a `Resize` event.
-def width(screen: Screen) -> Int = looked(screen).width
+def width(screen: Screen) -> Int = looked(screen).map { |live| live.width }.unwrap_or(0)
 
 ## The height of the terminal in rows.
-def height(screen: Screen) -> Int = looked(screen).height
+def height(screen: Screen) -> Int = looked(screen).map { |live| live.height }.unwrap_or(0)
 
 ## Fills the back buffer with spaces of the style (default colors when left out).
 def clear(screen: Screen, style: St.Style = St.Style()) -> Result[Void]
@@ -93,7 +102,7 @@ end
 
 ## Gives the terminal back as it was before `open` (main screen, its own modes), so that another program can use it;
 ## the screen stays open, and an event wait reads nothing until `resume`. Calling it again changes nothing.
-def suspend(screen: Screen) -> Result[Void] = locked(screen, &suspended)
+def suspend(screen: Screen) -> Result[Void] = locked(screen, ->(live) { suspended(screen, live) })
 
 ## Takes the terminal again after `suspend`, with the modes it had, and reads its size again. Nothing drawn before
 ## shows: draw the whole screen again. Calling it again changes nothing.
@@ -151,6 +160,9 @@ INBOX = 4096
 # How many bytes one step of the reader of events takes from the inbox.
 CHUNK = 4096
 LOCK_MS = 60_000
+# How long a read of the screen waits for it, and the close.
+LOOK_MS = 5000
+CLOSE_MS = 2000
 # How long a stop waits for the answer of the terminal.
 STOP_MS = 500
 BYTE_BITS = 8
@@ -163,6 +175,7 @@ MAX_TIMEOUT_MS = 2_147_483_647
 IN_USE: ATS[String, Bool] = ATS.new()
 IN_USE_KEY = "open"
 CLOSED = "tui: the screen is closed"
+BUSY = "tui: the screen is busy"
 SUSPENDED = "tui: the terminal is suspended"
 
 enum Phase
@@ -185,9 +198,6 @@ struct Live
   input: Ev.InputMode = Ev.InputMode.Esc
   mouse: Bool = false
   output: St.OutputMode = St.OutputMode.Normal
-  signals: Optional[Channel[System.Signal]] = none
-  reader: Optional[Reader] = none
-  watcher: Optional[Task[Void]] = none
 end
 
 # The task that reads standard input, and the channel whose close asks it to stop.
@@ -239,15 +249,26 @@ def begun() -> Result[Screen]
   return error("standard output is not a terminal") if not Terminal.tty?(Terminal.Stream.Stdout)
 
   signals = try System.subscribe([System.Signal.Winch])
-  closed = Live(phase: Phase.Closed, width: 0, height: 0, back: Gr.blank(0, 0), signals: some(signals))
+  closed = Live(phase: Phase.Closed, width: 0, height: 0, back: Gr.blank(0, 0))
   case enter(closed)
     error(e) ->
       signals.close
       error(e.message)
     ok(live) ->
-      screen = Screen(live: Channel.new(1), inbox: Channel.new(INBOX), reading: Channel.new(1))
-      watcher = Task.spawn do watch_size(screen, signals) end
-      try screen.live.send(live.with(reader: some(start_reader(screen)), watcher: some(watcher)), LOCK_MS)
+      slot: Channel[Live] = Channel.new(1)
+      inbox: Channel[Item] = Channel.new(INBOX)
+      watcher = Task.spawn do watch_size(slot, inbox, signals) end
+      screen = Screen(
+        live: slot,
+        inbox: inbox,
+        reading: Channel.new(1),
+        reader: Channel.new(1),
+        watcher: watcher,
+        signals: signals,
+      )
+
+      try slot.send(live, LOCK_MS)
+      try screen.reader.send(start_reader(inbox), LOCK_MS)
       try screen.reading.send(Reading(parser: In.Parser()), LOCK_MS)
       ok(screen)
   end
@@ -298,43 +319,47 @@ def emit(bytes: String) -> Void
 end
 
 def close(screen: Screen) -> Result[Void]
-  stopped = locked(screen, &closing)
+  stopped = case held(screen.live, CLOSE_MS, ->(live) { closing(screen, live) })
+    some(done) -> done
+    none -> forced(screen)
+  end
+
   screen.inbox.close
   IN_USE.delete(IN_USE_KEY)
   stopped
 end
 
-def closing(live: Live) -> Locked
+def closing(screen: Screen, live: Live) -> Locked
   return Locked(live: live, value: ok()) if live.phase == Phase.Closed
 
-  stop_reader(live)
-  stop_task(live.watcher)
-  case live.signals
-    some(signals) -> signals.close
-    none -> nil
-  end
-
+  stop_reader(screen)
+  Task.cancel(screen.watcher)
+  screen.signals.close
   left = ok()
   if live.phase == Phase.Open
     left = leave(live)
   end
 
-  Locked(live: live.with(phase: Phase.Closed, reader: none, watcher: none, signals: none), value: left)
+  Locked(live: live.with(phase: Phase.Closed), value: left)
 end
 
-def stop_task(task: Optional[Task[Void]]) -> Void
-  case task
-    some(running) -> Task.cancel(running)
-    none -> nil
-  end
+# The close when the screen could not be taken in time (a task cancelled while it held it): the tasks end and the
+# terminal gets back what it can, without knowing the modes the screen had.
+def forced(screen: Screen) -> Result[Void]
+  stop_reader(screen)
+  Task.cancel(screen.watcher)
+  screen.signals.close
+  emit(Ansi.mouse(false) + Ansi.LEAVE)
+  try Terminal.raw(on: false)
+  error("tui: the screen was busy at the close; the terminal is restored")
 end
 
-def suspended(live: Live) -> Locked
+def suspended(screen: Screen, live: Live) -> Locked
   case live.phase
     Phase.Open ->
-      stop_reader(live)
+      stop_reader(screen)
       left = leave(live)
-      Locked(live: live.with(phase: Phase.Suspended, reader: none, front: none, cursor_now: none), value: left)
+      Locked(live: live.with(phase: Phase.Suspended, front: none, cursor_now: none), value: left)
     Phase.Suspended -> Locked(live: live, value: ok())
     Phase.Closed -> Locked(live: live, value: error(CLOSED))
   end
@@ -344,7 +369,9 @@ def resumed(screen: Screen, live: Live) -> Locked
   case live.phase
     Phase.Suspended ->
       case enter(live)
-        ok(back) -> Locked(live: back.with(reader: some(start_reader(screen))), value: ok())
+        ok(back) ->
+          _ = screen.reader.send(start_reader(screen.inbox), LOCK_MS)
+          Locked(live: back, value: ok())
         error(e) -> Locked(live: live, value: error("tui: resume failed: #{e.message}"))
       end
 
@@ -356,12 +383,20 @@ end
 # Takes the screen, calls `change` on it and puts back what it gives. `change` never stops with a runtime error: the
 # screen would stay taken.
 def locked(screen: Screen, change: Fn[Live, Locked]) -> Result[Void]
-  case screen.live.recv(LOCK_MS)
+  case held(screen.live, LOCK_MS, change)
+    some(done) -> done
+    none -> error(BUSY)
+  end
+end
+
+# `locked` on the slot of the screen, waiting up to `wait_ms` for it: none when it did not come.
+def held(slot: Channel[Live], wait_ms: Int, change: Fn[Live, Locked]) -> Optional[Result[Void]]
+  case slot.recv(wait_ms)
     ok(live) ->
       step = change.call(live)
-      _ = screen.live.send(step.live, LOCK_MS)
-      step.value
-    error(_) -> error("tui: the screen is busy")
+      _ = slot.send(step.live, LOCK_MS)
+      some(step.value)
+    error(_) -> none
   end
 end
 
@@ -379,10 +414,13 @@ def guarded(live: Live, change: Fn[Live, Locked]) -> Locked
 end
 
 # The screen as it is, for a read of its size or modes.
-def looked(screen: Screen) -> Live
-  live = screen.live.recv(LOCK_MS).unwrap!
-  _ = screen.live.send(live, LOCK_MS)
-  live
+def looked(screen: Screen) -> Optional[Live]
+  case screen.live.recv(LOOK_MS)
+    ok(live) ->
+      _ = screen.live.send(live, LOCK_MS)
+      some(live)
+    error(_) -> none
+  end
 end
 
 def cleared(live: Live, style: St.Style) -> Locked
@@ -468,7 +506,7 @@ end
 
 # Sets the modes; the function it gives puts back those before.
 def set_modes(screen: Screen, modes: Bd.Modes) -> Result[Fn[Result[Void]]]
-  before = looked(screen)
+  before = try looked(screen).to_result(BUSY)
   try set_input_mode(screen, modes.input, mouse: modes.mouse)
   try set_output_mode(screen, modes.output)
   ok(-> { restore_modes(screen, before) })
@@ -479,18 +517,19 @@ def restore_modes(screen: Screen, before: Live) -> Result[Void]
   set_output_mode(screen, before.output)
 end
 
-def start_reader(screen: Screen) -> Reader
+def start_reader(inbox: Channel[Item]) -> Reader
   gate: Channel[Bool] = Channel.new(1)
-  Reader(task: Task.spawn do read_input(screen.inbox, gate) end, gate: gate)
+  Reader(task: Task.spawn do read_input(inbox, gate) end, gate: gate)
 end
 
 # Stops the reader without leaving a read of standard input pending, which would take the first bytes another
 # program (or this one, later) reads. A read that waits cannot be cancelled in time, so the terminal is asked to
 # answer a status report: the reader sees the answer, which ends its pending read, and stops. A terminal that does
-# not answer leaves the read to the VM's cancel.
-def stop_reader(live: Live) -> Void
-  case live.reader
-    some(reader) ->
+# not answer in STOP_MS leaves the read to the VM's cancel (agentica-lang/agentica#2013: the cancel does not end the
+# read), and an answer that comes later reaches whoever reads the terminal then.
+def stop_reader(screen: Screen) -> Void
+  case screen.reader.recv(0)
+    ok(reader) ->
       reader.gate.close
       emit(Ansi.STATUS_REQUEST)
       case Task.await(reader.task, STOP_MS)
@@ -498,7 +537,7 @@ def stop_reader(live: Live) -> Void
         Await.TimedOut -> Task.cancel(reader.task)
       end
 
-    none -> nil
+    error(_) -> nil
   end
 end
 
@@ -526,20 +565,20 @@ def read_input(inbox: Channel[Item], gate: Channel[Bool]) -> Void
 end
 
 # Gives the new size of the terminal, at each resize signal, to the screen and to the events.
-def watch_size(screen: Screen, signals: Channel[System.Signal]) -> Void
+def watch_size(slot: Channel[Live], inbox: Channel[Item], signals: Channel[System.Signal]) -> Void
   while not signals.closed?
     case signals.recv(IDLE_MS)
-      ok(_) -> resized(screen)
+      ok(_) -> resized(slot, inbox)
       error(_) -> next
     end
   end
 end
 
-def resized(screen: Screen) -> Void
+def resized(slot: Channel[Live], inbox: Channel[Item]) -> Void
   case Terminal.size()
     ok(size) ->
-      if locked(screen, ->(live) { sized(live, size) }).ok?
-        _ = screen.inbox.send(Item.Resized(size.cols, size.rows), SEND_MS)
+      if held(slot, LOCK_MS, ->(live) { sized(live, size) }) == some(ok())
+        _ = inbox.send(Item.Resized(size.cols, size.rows), SEND_MS)
       end
 
     error(_) -> nil
@@ -559,7 +598,8 @@ end
 # The next event, after at most timeout_ms. Waits take the reading one after the other.
 def wait_event(screen: Screen, timeout_ms: Int) -> Result[Optional[Ev.Event]]
   deadline = Time.monotonic_ms() + timeout_ms
-  return error(CLOSED) if looked(screen).phase == Phase.Closed
+  seen = try looked(screen).to_result(BUSY)
+  return error(CLOSED) if seen.phase == Phase.Closed
 
   case screen.reading.recv(timeout_ms)
     ok(reading) ->
@@ -583,7 +623,10 @@ def collect(screen: Screen, start: Reading, deadline: Int) -> Waited
     end
 
     now = Time.monotonic_ms()
-    live = looked(screen)
+    found = looked(screen)
+    return Waited(reading: reading, found: error(BUSY)) if found.none?
+
+    live = found.unwrap!
     flush_at = flush_time(reading, live.input)
     wait = [deadline, flush_at].min.unwrap! - now
     case screen.inbox.recv([wait, 0].max.unwrap!)

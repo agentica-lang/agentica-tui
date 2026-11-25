@@ -127,7 +127,8 @@ module Raw
 
   ## Opens the terminal (full screen, raw input, no cursor), gives it to the block and closes it when the block ends,
   ## whatever it returns. Gives the block's result, an error when the terminal cannot be opened, or
-  ## `error("task crashed: ...")` when the block stops with a runtime error.
+  ## `error("task crashed: ...")` when the block stops with a runtime error. Do not run it in a task that gets
+  ## cancelled, and do not cancel a task that waits for an event or draws: it takes the screen along.
   def open[T](body: Fn[Screen, Result[T]]) -> Result[T] = Tm.open(body)
 
   ## The open screen as a backend of `program`.
@@ -137,7 +138,7 @@ module Raw
   ## had before.
   def program[M, Msg](backend: Bd.Backend, app: Pg.App[M, Msg]) -> Result[M] = Pg.program(backend, app)
 
-  ## The width of the terminal in columns. It changes after a `Resize` event, once the screen is cleared or shown.
+  ## The width of the terminal in columns. It changes after a `Resize` event.
   def width(screen: Screen) -> Int = Tm.width(screen)
 
   ## The height of the terminal in rows.

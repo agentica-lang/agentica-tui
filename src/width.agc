@@ -5,7 +5,7 @@
 import Table from "width_table"
 
 FIRST_TABLED = 0x300
-# The most characters of one cell: TUI_CLUSTER_MAX of native/tui.c.
+# The most characters of one cell: a character and the zero-width ones on it.
 CELL_CHARS = 32
 
 def char(c: String) -> Int

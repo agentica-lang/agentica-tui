@@ -69,7 +69,10 @@ def screen_rows(output: bytes, rows: int = 24, cols: int = 80) -> list[str]:
 class Terminal:
     """A program running on a new pty of 80x24 with TERM=xterm."""
 
-    def __init__(self, program: Path, env: dict[str, str] | None = None) -> None:
+    def __init__(
+        self, program: Path, env: dict[str, str] | None = None, answers_status: bool = True
+    ) -> None:
+        self.answers_status = answers_status
         self.master, self.slave = os.openpty()
         set_size(self.slave, 24, 80)
         self.modes_before = termios.tcgetattr(self.slave)
@@ -140,14 +143,14 @@ class Terminal:
             return False
         chunk = os.read(self.master, 65536)
         self.output += chunk
-        if STATUS_REQUEST in chunk:
+        if self.answers_status and STATUS_REQUEST in chunk:
             os.write(self.master, STATUS_REPLY)
         return bool(chunk)
 
 
 class PtyTest(unittest.TestCase):
-    def start(self, fixture: str, env: dict[str, str] | None = None) -> Terminal:
-        terminal = Terminal(FIXTURES / fixture, env)
+    def start(self, fixture: str, env: dict[str, str] | None = None, answers_status: bool = True) -> Terminal:
+        terminal = Terminal(FIXTURES / fixture, env, answers_status)
         self.addCleanup(terminal.close)
         return terminal
 
@@ -254,7 +257,8 @@ class PtyTest(unittest.TestCase):
         self.assertIn("\u26a0xyz".encode(), term.output)
         start = len(term.output)
         term.send(b"x")
-        end = term.wait_for("e\u0301!".encode(), start)
+        # The mark makes the cell a cluster: the next cell is placed by a move.
+        end = term.wait_for("e\u0301\x1b[1;5H!".encode(), start)
         frame = term.output[start:end]
         # Only the changed cells are sent: no clear and no "caf".
         self.assertNotIn(b"\x1b[2J", frame)
@@ -531,8 +535,29 @@ class PtyTest(unittest.TestCase):
         term.wait_for(b"drawn")
 
         self.assertEqual(term.finish(), 3)
-        # The VM gives back raw mode; the alternate screen stays, as nothing runs after System.exit.
-        self.assertNotIn(LEAVE_SCREEN, term.output)
+        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+
+    def test_a_terminal_that_does_not_answer_the_status_request_delays_the_close_by_half_a_second(self) -> None:
+        term = self.start("events.agc", answers_status=False)
+        term.wait_for_row(0, "ready 80x24")
+        started = time.monotonic()
+        term.send(b"q")
+
+        self.assertEqual(term.finish(), 0)
+        self.assertIn(STATUS_REQUEST, term.output)
+        self.assertGreater(time.monotonic() - started, 0.4)
+        self.assertLess(time.monotonic() - started, 3.0)
+        self.assertIn(LEAVE_SCREEN, term.output)
+        self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
+
+    def test_the_close_restores_the_terminal_when_a_task_cancelled_mid_draw_took_the_lock(self) -> None:
+        term = self.start("lost.agc")
+        # Not read: the drawing task fills the pty and waits inside its write, with the screen taken.
+        time.sleep(1.5)
+
+        self.assertEqual(term.finish(), 0)
+        after = term.output[term.output.rindex(LEAVE_SCREEN) :]
+        self.assertIn(b"closed tui: the screen was busy at the close; the terminal is restored", after)
         self.assertEqual(termios.tcgetattr(term.slave), term.modes_before)
 
     def test_a_second_open_fails_and_changes_nothing(self) -> None:

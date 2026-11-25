@@ -73,4 +73,4 @@ end
 
 ## Widths
 
-Widths are terminal columns, from the `wcwidth` table of glibc 2.41 (`src/width_table.agc`, made by `scripts/width_table.py`): a wide character takes two columns, a combining mark none. A combining mark or a zero-width joiner is drawn on the cell before it, with that character (`e` and U+0301 show as one `é`). A variation selector (U+FE00 to U+FE0F) is left out: many terminals draw `⚠` with U+FE0F two columns wide, which would shift the rest of the line. A terminal that has another width for a character shifts the rest of its line.
+Widths are terminal columns, from the `wcwidth` table of glibc 2.41 (`src/width_table.agc`, made by `scripts/width_table.py`): a wide character takes two columns, a combining mark none. A combining mark or a zero-width joiner is drawn on the cell before it, with that character (`e` and U+0301 show as one `é`). A variation selector (U+FE00 to U+FE0F) is left out: many terminals draw `⚠` with U+FE0F two columns wide, which would shift the rest of the line.

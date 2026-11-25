@@ -1,6 +1,6 @@
 ## What a program needs of a terminal, as a record of functions: its size, drawing cells and showing them, waiting
-## for events, and the modes. the terminal is one backend (`terminal.agc`); a fake one (`fake.agc`) runs a program in a
-## test.
+## for events, and the modes. The terminal is one backend (`terminal.agc`); a fake one (`fake.agc`) runs a program in
+## a test.
 
 import Ev from "event"
 import Gr from "grid"

@@ -49,15 +49,27 @@ def main() -> Void
       new = screen([cell(0, 0, "a", style)])
       blank = Gr.blank(WIDTH, HEIGHT)
       try Test.eq(drawn(blank, new, St.OutputMode.Normal), "^[1;1H^[0ma^[0m")
-      try Test.eq(drawn(blank, new, St.OutputMode.Colors256), "^[1;1H^[0;38;5;196ma^[0m")
+      try Test.eq(drawn(blank, new, St.OutputMode.Colors256), "^[1;1H^[0;38;5;196;48;5;16ma^[0m")
       try Test.eq(drawn(blank, new, St.OutputMode.Truecolor), "^[1;1H^[0;38;5;196;48;2;1;2;3ma^[0m")
       bright = screen([cell(0, 0, "b", St.Style(fg: St.Color.Red, bg: St.Color.Cyan, attrs: [St.Attr.Bright]))])
       Test.eq(drawn(blank, bright), "^[1;1H^[0;91;106mb^[0m")
     end,
-    Test.test("a wide character moves the cursor two columns, and its covered cell sends nothing") do
+    Test.test("a true color is the nearest color of the palette in Colors256: the cube or the gray ramp") do
+      orange = screen([cell(0, 0, "a", St.Style(fg: St.Color.Rgb(255, 128, 0)))])
+      gray = screen([cell(0, 0, "a", St.Style(fg: St.Color.Rgb(128, 128, 128), bg: St.Color.Rgb(255, 255, 255)))])
+      blank = Gr.blank(WIDTH, HEIGHT)
+      try Test.eq(drawn(blank, orange, St.OutputMode.Colors256), "^[1;1H^[0;38;5;208ma^[0m")
+      Test.eq(drawn(blank, gray, St.OutputMode.Colors256), "^[1;1H^[0;38;5;244;48;5;231ma^[0m")
+    end,
+    Test.test("a wide character covers two columns, its covered cell sends nothing, and the next cell is moved to") do
       old = screen([cell(0, 0, "a"), cell(1, 0, "b")])
       new = screen([cell(0, 0, "中"), cell(2, 0, "z")])
-      Test.eq(drawn(old, new), "^[1;1H^[0m中z")
+      Test.eq(drawn(old, new), "^[1;1H^[0m中^[1;3Hz")
+    end,
+    Test.test("after a wide cell or one with marks the next cell is placed by a move") do
+      joined = "a" + String.from_code(0x200d) + "b"
+      new = screen([cell(0, 0, "中"), cell(2, 0, "x"), cell(3, 0, joined), cell(4, 0, "y"), cell(5, 0, "z")])
+      Test.eq(drawn(Gr.blank(WIDTH, HEIGHT), new), "^[1;1H^[0m中^[1;3Hx" + joined + "^[1;5Hyz")
     end,
     Test.test("a control character shows as U+FFFD, and a color out of range is an error") do
       try Test.eq(drawn(Gr.blank(WIDTH, HEIGHT), screen([cell(0, 0, Ansi.ESC)])), "^[1;1H^[0m�")

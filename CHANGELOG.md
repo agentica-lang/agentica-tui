@@ -63,10 +63,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   - Mouse reports are SGR (1006) only; the older urxvt (1015) and X10 forms are not read.
   - A lone Escape waits 50 ms for the rest of a sequence before it is the key.
   - A mouse report has the `shift`, `alt` and `ctrl` of its button code in `mods`.
-  - The named colors show in every output mode, `Index` in `Colors256` and `Truecolor`, `Rgb` in `Truecolor`; a color
-    the mode cannot show is the terminal's own.
+  - The named colors show in every output mode, `Index` in `Colors256` and `Truecolor`, `Rgb` in `Truecolor` (in
+    `Colors256` as the nearest color of the palette); a color the mode cannot show is the terminal's own.
   - `suspend` and the close ask the terminal for its status (`ESC [ 5 n`) so that no read of standard input is left
-    pending; a terminal that does not answer delays them by half a second.
+    pending (a cancelled read still races for the next bytes: agentica-lang/agentica#2013). A terminal that does not
+    answer delays them by half a second, and an answer later than that reaches the next program that reads the
+    terminal (a shell may show `^[[0n`).
+  - A cell with a wide character, or with marks on it, is followed by an absolute cursor move.
+  - The close restores the terminal even when a task cancelled while it drew took the screen's lock with it; do not
+    cancel a task that waits for an event or draws.
 - The package needs Agentica 0.39.0, where `Term` is a reserved type name; the fake terminal of `TUI.Testing` keeps
   its state in `TermState`.
 - **Breaking:** `TUI.Backend` has `suspend` and `resume`, which a backend built by hand gives; a `case` over `Cmd`
