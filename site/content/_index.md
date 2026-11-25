@@ -5,10 +5,10 @@ description: A terminal UI package for Agentica. A typed view tree, an Elm-like 
 
 agentica-tui is a terminal UI library for [Agentica](https://www.agentica-lang.com/agentica/): build a view tree, draw it full screen, and read key, mouse, paste and resize events. It is written in Agentica alone, on the `Terminal` builtin: no native code.
 
-It needs Agentica 0.39.0 or later and a terminal that takes VT sequences. CI runs the unit tests and the pseudo-terminal tests on Linux x86_64, macOS arm64 and macOS x86_64; on Windows x86_64 it checks the code and runs the unit tests only, and the terminal is not tested there. There is no release tag yet: add the package at a commit of `main` (the whole commit id).
+It needs Agentica 0.39.0 or later and a terminal that takes VT sequences. CI runs the unit tests and the pseudo-terminal tests on Linux x86_64, macOS arm64 and macOS x86_64; on Windows x86_64 it checks the code and runs the unit tests only, and the terminal is not tested there. Add the package at its release tag.
 
 ```sh
-agentica add tui https://github.com/agentica-lang/agentica-tui --ref COMMIT
+agentica add tui https://github.com/agentica-lang/agentica-tui --tag 0.1.0
 ```
 
 A counter: `+` and `-` change it, `q` quits.
