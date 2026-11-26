@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 env:
-  AGENTICA_VERSION: 0.39.0
+  AGENTICA_VERSION: 0.39.1
 
 jobs:
   test:
@@ -22,20 +22,20 @@ jobs:
         include:
           - system: linux-x86_64
             runner: ubuntu-latest
-            archive: agentica-0.39.0-linux-x86_64.tar.gz
-            sha256: 2ce92a90d2ffe9b9404c57d722a7f6a6e6d7b2376d09cfc3548a773b84f9bc0f
+            archive: agentica-0.39.1-linux-x86_64.tar.gz
+            sha256: c2ce2354068b82858917f049a38d3831f64a71d495b5237785aaf622d6d52725
           - system: macos-arm64
             runner: macos-latest
-            archive: agentica-0.39.0-macos-arm64.tar.gz
-            sha256: bea21878952832a151a8a4a33894c5efa90e5ba55140dc8e57968abc2d0ed691
+            archive: agentica-0.39.1-macos-arm64.tar.gz
+            sha256: a61cbe832373284c2ce91b5645388c7f8a7754df4d28515efc8762581fa29994
           - system: macos-x86_64
             runner: macos-15-intel
-            archive: agentica-0.39.0-macos-x86_64.tar.gz
-            sha256: caa1134b8f342d4e996c7845f3358d162c75db9a4a35f010f1e12b2e54a7a593
+            archive: agentica-0.39.1-macos-x86_64.tar.gz
+            sha256: 14d83a7269fb8498526065efba07561f30ece4f79768fdece8360cdd62dc1951
           - system: windows-x86_64
             runner: windows-2025
-            archive: agentica-0.39.0-windows-x86_64.zip
-            sha256: e8a25819a1d14ffca53d3d137dc30c29f32b7ccc8adb1d892653125fb9fd964e
+            archive: agentica-0.39.1-windows-x86_64.zip
+            sha256: 32a76c86ef9f1e51114e18b6eb91d83b7502d539c64f7ef8ceb11e0d3d507fd2
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
